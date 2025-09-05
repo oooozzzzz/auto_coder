@@ -4,18 +4,16 @@ import { useState, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ExcelData, Template, TemplateElement, FieldDefinition } from '@/types';
-import { 
-  FileUploader, 
-  DataPreview, 
-  TemplateCanvas, 
-  FieldPalette, 
-  TemplateManager, 
-  DocumentDownloader, 
+import {
+  FileUploader,
+  DataPreview,
+  TemplateCanvas,
+  FieldPalette,
+  TemplateManager,
+  DocumentDownloader,
   ErrorBoundary,
   Header,
   MobileDrawer,
-  ResponsiveGrid,
-  GridColumn,
   ResponsiveCard,
   ResponsiveStack
 } from '@/components';
@@ -45,7 +43,7 @@ function HomeContent() {
   const handleFileUpload = (data: ExcelData) => {
     setExcelData(data);
     setError(null);
-    
+
     // Create default template
     const defaultTemplate: Template = {
       id: generateId(),
@@ -55,7 +53,7 @@ function HomeContent() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
-    
+
     setCurrentTemplate(defaultTemplate);
     setCurrentStep('template');
     showSuccess('Файл успешно загружен');
@@ -78,11 +76,11 @@ function HomeContent() {
 
   const handleElementMove = (elementId: string, x: number, y: number) => {
     if (!currentTemplate) return;
-    
+
     const updatedElements = currentTemplate.elements.map(el =>
       el.id === elementId ? { ...el, x, y } : el
     );
-    
+
     setCurrentTemplate({
       ...currentTemplate,
       elements: updatedElements,
@@ -92,11 +90,11 @@ function HomeContent() {
 
   const handleElementResize = (elementId: string, width: number, height: number) => {
     if (!currentTemplate) return;
-    
+
     const updatedElements = currentTemplate.elements.map(el =>
       el.id === elementId ? { ...el, width, height } : el
     );
-    
+
     setCurrentTemplate({
       ...currentTemplate,
       elements: updatedElements,
@@ -106,7 +104,7 @@ function HomeContent() {
 
   const handleAddMultipleFields = (fields: FieldDefinition[]) => {
     if (!currentTemplate) return;
-    
+
     const newElements: TemplateElement[] = fields.map((field, index) => ({
       id: generateId(),
       fieldName: field.name,
@@ -134,7 +132,7 @@ function HomeContent() {
         color: '#000000'
       }
     }));
-    
+
     setCurrentTemplate({
       ...currentTemplate,
       elements: [...currentTemplate.elements, ...newElements],
@@ -144,7 +142,7 @@ function HomeContent() {
 
   const handleSaveTemplate = async () => {
     if (!currentTemplate) return;
-    
+
     try {
       setIsLoading(true);
       await templateService.saveTemplate(currentTemplate);
@@ -164,7 +162,7 @@ function HomeContent() {
 
   const availableFields = useMemo((): FieldDefinition[] => {
     if (!excelData) return [];
-    
+
     return excelData.headers.map(header => ({
       name: header,
       displayName: header,
@@ -203,7 +201,7 @@ function HomeContent() {
                   </div>
                 )}
               </ResponsiveCard>
-              
+
               {excelData && (
                 <ResponsiveCard
                   title="Предварительный просмотр данных"
@@ -254,16 +252,22 @@ function HomeContent() {
               {/* Desktop Layout */}
               <div className="hidden lg:block space-y-6">
                 {/* Field Palette Row */}
-                <ResponsiveCard
-                  title="Поля данных"
-                  subtitle="Перетащите поля на холст для создания шаблона"
-                  className="max-h-80"
-                >
-                  <FieldPalette 
-                    availableFields={availableFields}
-                    onAddMultipleFields={handleAddMultipleFields}
-                  />
-                </ResponsiveCard>
+                <div className="bg-white border border-gray-200 rounded-lg">
+                  <div className="p-4 border-b border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mb-2 sm:mb-0">
+                        <h3 className="text-lg font-semibold">Поля данных</h3>
+                        <p className="text-sm text-gray-600 mt-1">Перетащите поля на холст для создания шаблона</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-80 overflow-hidden">
+                    <FieldPalette
+                      availableFields={availableFields}
+                      onAddMultipleFields={handleAddMultipleFields}
+                    />
+                  </div>
+                </div>
 
                 {/* Template Canvas Row */}
                 <ResponsiveCard
@@ -304,13 +308,19 @@ function HomeContent() {
                 </ResponsiveCard>
 
                 {/* Data Preview Row */}
-                <ResponsiveCard
-                  title="Предварительный просмотр данных"
-                  subtitle={`${excelData.rows.length} строк из листа "${excelData.selectedSheet}"`}
-                  className="max-h-96"
-                >
-                  <DataPreview data={excelData} />
-                </ResponsiveCard>
+                <div className="bg-white border border-gray-200 rounded-lg">
+                  <div className="p-4 border-b border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mb-2 sm:mb-0">
+                        <h3 className="text-lg font-semibold">Предварительный просмотр данных</h3>
+                        <p className="text-sm text-gray-600 mt-1">{excelData.rows.length} строк из листа &quot;{excelData.selectedSheet}&quot;</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="h-96 overflow-hidden">
+                    <DataPreview data={excelData} />
+                  </div>
+                </div>
               </div>
 
               {/* Mobile Layout */}
@@ -360,7 +370,7 @@ function HomeContent() {
                 title="Поля данных"
                 description="Перетащите поля на холст для создания шаблона"
               >
-                <FieldPalette 
+                <FieldPalette
                   availableFields={availableFields}
                   onAddMultipleFields={handleAddMultipleFields}
                 />

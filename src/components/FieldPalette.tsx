@@ -36,15 +36,13 @@ const DraggableField: React.FC<{
     return (
         <div
             ref={drag as any}
-            className={`p-2 border rounded-lg transition-all ${
-                isSelected 
-                    ? 'border-blue-500 bg-blue-50' 
+            className={`p-2 border rounded-lg transition-all ${isSelected
+                    ? 'border-blue-500 bg-blue-50'
                     : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
-            } ${
-                isDragging
+                } ${isDragging
                     ? 'opacity-50 scale-95'
                     : showCheckbox ? 'cursor-pointer' : 'cursor-move'
-            }`}
+                }`}
             onClick={handleClick}
         >
             <div className="flex items-start space-x-2">
@@ -52,7 +50,7 @@ const DraggableField: React.FC<{
                     <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => {}}
+                        onChange={() => { }}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mt-0.5"
                     />
                 )}
@@ -85,7 +83,7 @@ const FieldPalette: React.FC<{
     // Separate Excel fields and system fields
     const excelFields = availableFields.filter(field => field.type === 'excel');
     const systemFields = SYSTEM_FIELDS;
-    
+
     // State for multi-select mode
     const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
     const [selectedFields, setSelectedFields] = useState<FieldDefinition[]>([]);
@@ -103,21 +101,21 @@ const FieldPalette: React.FC<{
 
     // Handle select all
     const handleSelectAll = useCallback((fields: FieldDefinition[]) => {
-        const allSelected = fields.every(field => 
+        const allSelected = fields.every(field =>
             selectedFields.some(selected => selected.name === field.name)
         );
-        
+
         if (allSelected) {
             // Deselect all from this category
-            setSelectedFields(prev => 
-                prev.filter(selected => 
+            setSelectedFields(prev =>
+                prev.filter(selected =>
                     !fields.some(field => field.name === selected.name)
                 )
             );
         } else {
             // Select all from this category
             setSelectedFields(prev => {
-                const newFields = fields.filter(field => 
+                const newFields = fields.filter(field =>
                     !prev.some(selected => selected.name === field.name)
                 );
                 return [...prev, ...newFields];
@@ -151,7 +149,7 @@ const FieldPalette: React.FC<{
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 lg:space-y-0">
                     <div className="flex-1">
                         <p className="text-sm text-gray-600">
-                            {isMultiSelectMode 
+                            {isMultiSelectMode
                                 ? 'Выберите поля для массового добавления'
                                 : 'Перетащите поля на холст или используйте массовое добавление'
                             }
@@ -192,40 +190,42 @@ const FieldPalette: React.FC<{
                 </div>
             </div>
 
-            <div className="p-4 flex-1 overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {/* Excel fields section */}
-                    {excelFields.length > 0 && (
-                        <>
-                            <div className="col-span-full flex items-center justify-between mb-2">
-                                <div className="flex items-center space-x-2">
-                                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                    <h4 className="font-medium text-gray-900">Поля из Excel</h4>
-                                    <span className="text-xs text-gray-500">({excelFields.length})</span>
-                                </div>
-                                {isMultiSelectMode && (
-                                    <button
-                                        onClick={() => handleSelectAll(excelFields)}
-                                        className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
-                                    >
-                                        {excelFields.every(field => isFieldSelected(field)) ? 'Снять все' : 'Выбрать все'}
-                                    </button>
-                                )}
+            <div className="p-4 flex-1 overflow-y-auto space-y-6">
+                {/* Excel fields section */}
+                {excelFields.length > 0 && (
+                    <div>
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <h4 className="font-medium text-gray-900">Поля из Excel</h4>
+                                <span className="text-xs text-gray-500">({excelFields.length})</span>
                             </div>
+                            {isMultiSelectMode && (
+                                <button
+                                    onClick={() => handleSelectAll(excelFields)}
+                                    className="text-xs text-blue-600 hover:text-blue-800 transition-colors"
+                                >
+                                    {excelFields.every(field => isFieldSelected(field)) ? 'Снять все' : 'Выбрать все'}
+                                </button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                             {excelFields.map((field, index) => (
-                                <DraggableField 
-                                    key={`excel-${index}`} 
+                                <DraggableField
+                                    key={`excel-${index}`}
                                     field={field}
                                     isSelected={isFieldSelected(field)}
                                     onSelect={handleFieldSelect}
                                     showCheckbox={isMultiSelectMode}
                                 />
                             ))}
-                        </>
-                    )}
+                        </div>
+                    </div>
+                )}
 
-                    {/* System fields section */}
-                    <div className="col-span-full flex items-center justify-between mb-2 mt-4">
+                {/* System fields section */}
+                <div>
+                    <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                             <h4 className="font-medium text-gray-900">Системные поля</h4>
@@ -240,35 +240,37 @@ const FieldPalette: React.FC<{
                             </button>
                         )}
                     </div>
-                    {systemFields.map((field, index) => (
-                        <DraggableField 
-                            key={`system-${index}`} 
-                            field={field}
-                            isSelected={isFieldSelected(field)}
-                            onSelect={handleFieldSelect}
-                            showCheckbox={isMultiSelectMode}
-                        />
-                    ))}
-
-                    {/* Empty state */}
-                    {excelFields.length === 0 && (
-                        <div className="col-span-full text-center py-8 text-gray-500">
-                            <div className="w-12 h-12 mx-auto mb-3 text-gray-300">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={1}
-                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                    />
-                                </svg>
-                            </div>
-                            <p className="text-sm">
-                                Загрузите Excel файл для получения полей данных
-                            </p>
-                        </div>
-                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {systemFields.map((field, index) => (
+                            <DraggableField
+                                key={`system-${index}`}
+                                field={field}
+                                isSelected={isFieldSelected(field)}
+                                onSelect={handleFieldSelect}
+                                showCheckbox={isMultiSelectMode}
+                            />
+                        ))}
+                    </div>
                 </div>
+
+                {/* Empty state */}
+                {excelFields.length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                        <div className="w-12 h-12 mx-auto mb-3 text-gray-300">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={1}
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                            </svg>
+                        </div>
+                        <p className="text-sm">
+                            Загрузите Excel файл для получения полей данных
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* Instructions */}
