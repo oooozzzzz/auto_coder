@@ -13,34 +13,34 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "clsx": "^2.0.0",
+    "dexie": "^3.2.4",
+    "docx": "^8.5.0",
     "next": "14.0.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "xlsx": "^0.18.5",
-    "docx": "^8.2.2",
-    "dexie": "^3.2.4",
     "react-dnd": "^16.0.1",
     "react-dnd-html5-backend": "^16.0.1",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0"
+    "react-dom": "^18.2.0",
+    "tailwind-merge": "^2.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.6",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/user-event": "^14.0.0",
     "@types/node": "^20.8.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "typescript": "^5.2.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "autoprefixer": "^10.4.16",
     "eslint": "^8.51.0",
     "eslint-config-next": "14.0.0",
-    "tailwindcss": "^3.3.0",
-    "autoprefixer": "^10.4.16",
-    "postcss": "^8.4.31",
-    "@tailwindcss/forms": "^0.5.6",
-    "vitest": "^1.0.0",
     "jsdom": "^23.0.0",
-    "@vitest/ui": "^1.0.0",
-    "@vitest/coverage-v8": "^1.0.0",
-    "@testing-library/react": "^14.0.0",
-    "@testing-library/jest-dom": "^6.0.0",
-    "@testing-library/user-event": "^14.0.0"
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.0",
+    "typescript": "^5.2.0",
+    "vitest": "^1.0.0"
   }
 }

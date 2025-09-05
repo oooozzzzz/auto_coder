@@ -6,7 +6,7 @@ import StorageService from '@/services/StorageService';
  * Custom hook for managing template storage operations
  */
 export const useStorage = (): UseStorageReturn => {
-  const [templates, setTemplates] = useState<TemplateListItem[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +20,15 @@ export const useStorage = (): UseStorageReturn => {
     try {
       const result = await StorageService.listTemplates();
       if (result.success && result.data) {
-        setTemplates(result.data);
+        // Load full template objects
+        const fullTemplates: Template[] = [];
+        for (const templateItem of result.data) {
+          const templateResult = await StorageService.loadTemplate(templateItem.id);
+          if (templateResult.success && templateResult.data) {
+            fullTemplates.push(templateResult.data);
+          }
+        }
+        setTemplates(fullTemplates);
       } else {
         setError(result.error || 'Ошибка загрузки шаблонов');
       }

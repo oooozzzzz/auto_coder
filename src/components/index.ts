@@ -6,7 +6,7 @@ export { default as TemplateCanvas } from './TemplateCanvas';
 export { default as FieldPalette } from './FieldPalette';
 
 // TODO: Add these exports as components are created
-// export { default as TemplateManager } from './TemplateManager';
+export { default as TemplateManager } from './TemplateManager';
 // export { default as PropertiesPanel } from './PropertiesPanel';
 // export { default as ErrorBoundary } from './ErrorBoundary';
 // export { default as Toast } from './Toast';

@@ -79,10 +79,15 @@ export interface AppState {
 
 // Document generation types
 export interface DocumentGenerationOptions {
-  template: Template;
-  data: ExcelData;
-  filename?: string;
-  includePageNumbers?: boolean;
+  rowIndex?: number;
+  includeHeaders?: boolean;
+  pageOrientation?: 'portrait' | 'landscape';
+  margins?: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
 }
 
 export interface DocumentGenerationResult {
@@ -177,19 +182,15 @@ export interface TemplateCanvasProps {
 
 export interface TemplateManagerProps {
   currentTemplate: Template | null;
-  templates: TemplateListItem[];
-  onSave: (name: string) => Promise<void>;
-  onLoad: (template: Template) => void;
-  onDelete: (templateId: string) => Promise<void>;
-  onNew: () => void;
-  isLoading?: boolean;
+  onTemplateLoad: (template: Template) => void;
+  onTemplateSave?: (template: Template) => void;
+  className?: string;
 }
 
 export interface PropertiesPanelProps {
   selectedElement: TemplateElement | null;
-  onStyleChange: (elementId: string, styles: Partial<ElementStyles>) => void;
-  onPositionChange: (elementId: string, x: number, y: number) => void;
-  onSizeChange: (elementId: string, width: number, height: number) => void;
+  onElementUpdate: (element: TemplateElement) => void;
+  className?: string;
 }
 
 export interface ErrorBoundaryProps {
@@ -221,9 +222,19 @@ export interface ITemplateService {
 }
 
 export interface IDocumentService {
-  generateDocument(options: DocumentGenerationOptions): Promise<DocumentGenerationResult>;
-  createDocumentWorker(): Worker;
-  substituteFields(text: string, rowData: Record<string, any>): string;
+  generateDocument(
+    template: Template,
+    excelData: ExcelData,
+    options?: DocumentGenerationOptions
+  ): Promise<Blob>;
+  generateMultipleDocuments(
+    template: Template,
+    excelData: ExcelData,
+    options?: DocumentGenerationOptions
+  ): Promise<Blob[]>;
+  validateTemplateForGeneration(template: Template): { isValid: boolean; error?: string };
+  createFilename(template: Template, rowIndex?: number): string;
+  downloadDocument(blob: Blob, filename: string): void;
 }
 
 export interface IStorageService {
@@ -339,7 +350,7 @@ export interface UseTemplateReturn {
 }
 
 export interface UseStorageReturn {
-  templates: TemplateListItem[];
+  templates: Template[];
   isLoading: boolean;
   error: string | null;
   saveTemplate: (template: Template) => Promise<void>;

@@ -46,6 +46,13 @@ export const formatFileSize = (bytes: number): string => {
 };
 
 /**
+ * Format date for display
+ */
+export const formatDate = (date: Date): string => {
+  return date.toLocaleDateString('ru-RU');
+};
+
+/**
  * Truncate text with ellipsis
  */
 export const truncateText = (text: string, maxLength: number): string => {
