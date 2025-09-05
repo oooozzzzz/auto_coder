@@ -360,7 +360,7 @@ class DocumentService implements IDocumentService {
 
       // Determine paragraph alignment based on first element
       const firstElement = sortedGroup[0];
-      let alignment = AlignmentType.LEFT;
+      let alignment;
       
       const textAlign = firstElement.styles?.textAlign || firstElement.textAlign;
       if (textAlign === 'center') {
@@ -654,7 +654,8 @@ class DocumentService implements IDocumentService {
 
     try {
       // Import Table and related classes from docx
-      const { Table, TableRow, TableCell, WidthType, BorderStyle } = await import('docx');
+      const docx = await import('docx');
+      const { Table, TableRow, TableCell, WidthType, BorderStyle } = docx;
 
       // Create a simplified table approach for better positioning
       // Sort elements by Y position to create rows
