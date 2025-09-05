@@ -29,6 +29,7 @@ const DocumentDownloader: React.FC<DocumentDownloaderProps> = ({
   const [downloadOptions, setDownloadOptions] = useState<DocumentGenerationOptions>({
     includeHeaders: false,
     pageOrientation: 'portrait',
+    positioningMode: 'hybrid',
     margins: { top: 720, right: 720, bottom: 720, left: 720 }
   });
 
@@ -379,6 +380,64 @@ const DocumentDownloader: React.FC<DocumentDownloaderProps> = ({
                     className="mr-2"
                   />
                   <span className="text-sm">Альбомная</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Positioning mode */}
+            <div>
+              <label className="block text-sm text-gray-600 mb-2">
+                Режим позиционирования
+                <span className="ml-1 text-xs text-gray-500">(влияет на точность расположения)</span>
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-start">
+                  <input
+                    type="radio"
+                    value="hybrid"
+                    checked={downloadOptions.positioningMode === 'hybrid'}
+                    onChange={(e) => setDownloadOptions(prev => ({
+                      ...prev,
+                      positioningMode: e.target.value as 'hybrid'
+                    }))}
+                    className="mr-2 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-sm font-medium">Гибридный</span>
+                    <div className="text-xs text-gray-500">Таблицы без границ - лучший баланс точности и совместимости</div>
+                  </div>
+                </label>
+                <label className="flex items-start">
+                  <input
+                    type="radio"
+                    value="absolute"
+                    checked={downloadOptions.positioningMode === 'absolute'}
+                    onChange={(e) => setDownloadOptions(prev => ({
+                      ...prev,
+                      positioningMode: e.target.value as 'absolute'
+                    }))}
+                    className="mr-2 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-sm font-medium">Абсолютный</span>
+                    <div className="text-xs text-gray-500">Точное позиционирование (может не работать в старых версиях Word)</div>
+                  </div>
+                </label>
+                <label className="flex items-start">
+                  <input
+                    type="radio"
+                    value="relative"
+                    checked={downloadOptions.positioningMode === 'relative'}
+                    onChange={(e) => setDownloadOptions(prev => ({
+                      ...prev,
+                      positioningMode: e.target.value as 'relative'
+                    }))}
+                    className="mr-2 mt-0.5"
+                  />
+                  <div>
+                    <span className="text-sm font-medium">Относительный</span>
+                    <div className="text-xs text-gray-500">Простые параграфы - максимальная совместимость, меньшая точность</div>
+                  </div>
                 </label>
               </div>
             </div>

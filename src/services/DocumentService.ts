@@ -21,6 +21,7 @@ class DocumentService implements IDocumentService {
         rowIndex = 0,
         includeHeaders = false,
         pageOrientation = 'portrait',
+        positioningMode = 'hybrid',
         margins = { top: 720, right: 720, bottom: 720, left: 720 } // 0.5 inch in twips
       } = options;
 
@@ -43,7 +44,7 @@ class DocumentService implements IDocumentService {
               margin: margins
             }
           },
-          children: await this.createDocumentElements(template, dataRow || {}, excelData.headers, includeHeaders)
+          children: await this.createDocumentElements(template, dataRow || {}, excelData.headers, includeHeaders, positioningMode)
         }]
       });
 
@@ -86,26 +87,230 @@ class DocumentService implements IDocumentService {
   }
 
   /**
-   * Create document elements from template
+   * Create document elements from template with configurable positioning
    */
   private async createDocumentElements(
     template: Template,
     dataRow: Record<string, any>,
     headers: string[],
-    includeHeaders: boolean
+    includeHeaders: boolean,
+    positioningMode: 'absolute' | 'relative' | 'hybrid' = 'hybrid'
   ): Promise<Paragraph[]> {
     const paragraphs: Paragraph[] = [];
 
-    // Sort elements by Y position (top to bottom)
-    const sortedElements = [...template.elements].sort((a, b) => a.y - b.y);
+    // Add headers if requested
+    if (includeHeaders && headers.length > 0) {
+      paragraphs.push(
+        new Paragraph({
+          children: [new TextRun({
+            text: 'Заголовки полей: ' + headers.join(', '),
+            size: 20,
+            italics: true
+          })],
+          spacing: { after: 240 }
+        })
+      );
+    }
 
-    // Group elements by approximate Y position (within 10 pixels)
+    // Choose positioning method based on mode
+    switch (positioningMode) {
+      case 'absolute':
+        // Try absolute positioning with Drawing ML
+        try {
+          const absoluteElements = await this.createAbsolutelyPositionedElements(
+            template.elements,
+            dataRow,
+            headers,
+            template.paperFormat
+          );
+          paragraphs.push(...absoluteElements);
+        } catch (error) {
+          console.warn('Absolute positioning failed, falling back to relative:', error);
+          const fallbackElements = this.createFallbackElements(template.elements, dataRow, headers);
+          paragraphs.push(...fallbackElements);
+        }
+        break;
+
+      case 'relative':
+        // Use improved relative positioning
+        const relativeElements = this.createFallbackElements(template.elements, dataRow, headers);
+        paragraphs.push(...relativeElements);
+        break;
+
+      case 'hybrid':
+      default:
+        // Use table-based positioning for better accuracy
+        const tableElements = await this.createTableBasedElements(
+          template.elements,
+          dataRow,
+          headers,
+          template.paperFormat
+        );
+        paragraphs.push(...tableElements);
+        break;
+    }
+
+    return paragraphs;
+  }
+
+  /**
+   * Create absolutely positioned elements using Drawing ML
+   */
+  private async createAbsolutelyPositionedElements(
+    elements: TemplateElement[],
+    dataRow: Record<string, any>,
+    headers: string[],
+    paperFormat: any
+  ): Promise<Paragraph[]> {
+    const paragraphs: Paragraph[] = [];
+
+    // Create a single paragraph that will contain all positioned elements
+    const drawingParagraph = new Paragraph({
+      children: [],
+      spacing: { after: 0, before: 0 }
+    });
+
+    // Add each element as an absolutely positioned text box
+    for (const element of elements) {
+      const value = this.getFieldValue(element.fieldName, dataRow, headers);
+      
+      try {
+        // Create text box with absolute positioning
+        const textBox = this.createPositionedTextBox(element, value, paperFormat);
+        if (textBox) {
+          drawingParagraph.addChildElement(textBox);
+        }
+      } catch (error) {
+        console.warn(`Failed to create positioned element for ${element.fieldName}:`, error);
+        // Fallback to regular text run
+        drawingParagraph.addChildElement(new TextRun({
+          text: `${value} `,
+          font: element.styles?.fontFamily || element.fontFamily,
+          size: (element.styles?.fontSize || element.fontSize) * 2,
+          bold: element.styles?.fontWeight === 'bold' || element.bold,
+          color: element.styles?.color?.replace('#', '') || element.color?.replace('#', '') || '000000'
+        }));
+      }
+    }
+
+    paragraphs.push(drawingParagraph);
+
+    // Add fallback paragraphs for better compatibility
+    const fallbackParagraphs = this.createFallbackElements(elements, dataRow, headers);
+    paragraphs.push(...fallbackParagraphs);
+
+    return paragraphs;
+  }
+
+  /**
+   * Create positioned text box using Drawing ML
+   */
+  private createPositionedTextBox(element: TemplateElement, text: string, paperFormat: any): any {
+    try {
+      // Convert coordinates from pixels to EMUs (English Metric Units)
+      // 1 pixel = 9525 EMUs at 96 DPI
+      const emuPerPixel = 9525;
+      const x = Math.round(element.x * emuPerPixel);
+      const y = Math.round(element.y * emuPerPixel);
+      const width = Math.round(element.width * emuPerPixel);
+      const height = Math.round(element.height * emuPerPixel);
+
+      // Create Drawing ML structure for positioned text box
+      const drawing = {
+        type: 'drawing',
+        children: [{
+          type: 'inline',
+          children: [{
+            type: 'graphic',
+            children: [{
+              type: 'graphicData',
+              uri: 'http://schemas.microsoft.com/office/word/2010/wordprocessingShape',
+              children: [{
+                type: 'wps:wsp',
+                children: [
+                  {
+                    type: 'wps:cNvPr',
+                    id: Math.floor(Math.random() * 1000000),
+                    name: `TextBox_${element.id}`
+                  },
+                  {
+                    type: 'wps:spPr',
+                    children: [{
+                      type: 'a:xfrm',
+                      children: [
+                        {
+                          type: 'a:off',
+                          x: x,
+                          y: y
+                        },
+                        {
+                          type: 'a:ext',
+                          cx: width,
+                          cy: height
+                        }
+                      ]
+                    }]
+                  },
+                  {
+                    type: 'wps:txbx',
+                    children: [{
+                      type: 'w:txbxContent',
+                      children: [{
+                        type: 'w:p',
+                        children: [{
+                          type: 'w:r',
+                          children: [
+                            {
+                              type: 'w:rPr',
+                              children: [
+                                { type: 'w:rFonts', val: element.styles?.fontFamily || element.fontFamily },
+                                { type: 'w:sz', val: (element.styles?.fontSize || element.fontSize) * 2 },
+                                { type: 'w:color', val: (element.styles?.color || element.color)?.replace('#', '') || '000000' }
+                              ]
+                            },
+                            {
+                              type: 'w:t',
+                              text: text
+                            }
+                          ]
+                        }]
+                      }]
+                    }]
+                  }
+                ]
+              }]
+            }]
+          }]
+        }]
+      };
+
+      return drawing;
+    } catch (error) {
+      console.error('Error creating positioned text box:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create fallback elements for better compatibility
+   */
+  private createFallbackElements(
+    elements: TemplateElement[],
+    dataRow: Record<string, any>,
+    headers: string[]
+  ): Paragraph[] {
+    const paragraphs: Paragraph[] = [];
+
+    // Sort elements by Y position (top to bottom)
+    const sortedElements = [...elements].sort((a, b) => a.y - b.y);
+
+    // Group elements by approximate Y position (within 15 pixels for better grouping)
     const elementGroups: TemplateElement[][] = [];
     let currentGroup: TemplateElement[] = [];
     let lastY = -1;
 
     for (const element of sortedElements) {
-      if (lastY === -1 || Math.abs(element.y - lastY) <= 10) {
+      if (lastY === -1 || Math.abs(element.y - lastY) <= 15) {
         currentGroup.push(element);
         lastY = element.y;
       } else {
@@ -121,7 +326,7 @@ class DocumentService implements IDocumentService {
       elementGroups.push(currentGroup);
     }
 
-    // Create paragraphs for each group
+    // Create paragraphs for each group with better spacing
     for (const group of elementGroups) {
       // Sort elements in group by X position (left to right)
       const sortedGroup = group.sort((a, b) => a.x - b.x);
@@ -132,19 +337,22 @@ class DocumentService implements IDocumentService {
         const element = sortedGroup[i];
         const value = this.getFieldValue(element.fieldName, dataRow, headers);
         
-        // Add spacing between elements if needed
+        // Add spacing between elements based on actual distance
         if (i > 0) {
           const prevElement = sortedGroup[i - 1];
           const spacing = element.x - (prevElement.x + prevElement.width);
-          if (spacing > 20) { // Add space if elements are far apart
-            textRuns.push(new TextRun({ text: '  ' }));
-          }
+          
+          // Calculate number of spaces based on distance
+          const spacesNeeded = Math.max(1, Math.floor(spacing / 10));
+          const spaceText = ' '.repeat(Math.min(spacesNeeded, 10)); // Max 10 spaces
+          
+          textRuns.push(new TextRun({ text: spaceText }));
         }
         
         textRuns.push(new TextRun({
           text: value,
           font: element.styles?.fontFamily || element.fontFamily,
-          size: (element.styles?.fontSize || element.fontSize) * 2, // Convert to half-points
+          size: (element.styles?.fontSize || element.fontSize) * 2,
           bold: element.styles?.fontWeight === 'bold' || element.bold,
           color: element.styles?.color?.replace('#', '') || element.color?.replace('#', '') || '000000'
         }));
@@ -152,7 +360,7 @@ class DocumentService implements IDocumentService {
 
       // Determine paragraph alignment based on first element
       const firstElement = sortedGroup[0];
-      let alignment;
+      let alignment = AlignmentType.LEFT;
       
       const textAlign = firstElement.styles?.textAlign || firstElement.textAlign;
       if (textAlign === 'center') {
@@ -167,23 +375,10 @@ class DocumentService implements IDocumentService {
         children: textRuns,
         alignment,
         spacing: {
-          after: 120 // Small spacing after paragraph
+          after: 120,
+          before: 0
         }
       }));
-    }
-
-    // Add headers table if requested
-    if (includeHeaders && headers.length > 0) {
-      paragraphs.unshift(
-        new Paragraph({
-          children: [new TextRun({
-            text: 'Заголовки полей: ' + headers.join(', '),
-            size: 20,
-            italics: true
-          })],
-          spacing: { after: 240 }
-        })
-      );
     }
 
     return paragraphs;
@@ -439,6 +634,201 @@ class DocumentService implements IDocumentService {
         // Add small delay between downloads
         await new Promise(resolve => setTimeout(resolve, 200));
       }
+    }
+  }
+
+  /**
+   * Create table-based positioned elements for better accuracy
+   */
+  private async createTableBasedElements(
+    elements: TemplateElement[],
+    dataRow: Record<string, any>,
+    headers: string[],
+    paperFormat: any
+  ): Promise<Paragraph[]> {
+    const paragraphs: Paragraph[] = [];
+
+    if (elements.length === 0) {
+      return paragraphs;
+    }
+
+    try {
+      // Import Table and related classes from docx
+      const { Table, TableRow, TableCell, WidthType, BorderStyle } = await import('docx');
+
+      // Create a simplified table approach for better positioning
+      // Sort elements by Y position to create rows
+      const sortedElements = [...elements].sort((a, b) => a.y - b.y);
+      
+      // Group elements by Y position (within 30 pixels tolerance)
+      const rowGroups: TemplateElement[][] = [];
+      let currentRow: TemplateElement[] = [];
+      let lastY = -1;
+
+      for (const element of sortedElements) {
+        if (lastY === -1 || Math.abs(element.y - lastY) <= 30) {
+          currentRow.push(element);
+          lastY = element.y;
+        } else {
+          if (currentRow.length > 0) {
+            rowGroups.push([...currentRow]);
+          }
+          currentRow = [element];
+          lastY = element.y;
+        }
+      }
+
+      if (currentRow.length > 0) {
+        rowGroups.push(currentRow);
+      }
+
+      // Create table rows
+      const tableRows: any[] = [];
+
+      for (const rowElements of rowGroups) {
+        // Sort elements in row by X position
+        const sortedRowElements = rowElements.sort((a, b) => a.x - b.x);
+        
+        // Calculate column positions and widths
+        const tableCells: any[] = [];
+        let lastX = 0;
+
+        for (let i = 0; i < sortedRowElements.length; i++) {
+          const element = sortedRowElements[i];
+          const value = this.getFieldValue(element.fieldName, dataRow, headers);
+
+          // Add empty cell if there's a gap
+          if (element.x > lastX + 10) {
+            const gapWidth = ((element.x - lastX) / paperFormat.width) * 100;
+            tableCells.push(new TableCell({
+              children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+              width: {
+                size: Math.max(5, gapWidth),
+                type: WidthType.PERCENTAGE
+              },
+              borders: {
+                top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+                right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }
+              }
+            }));
+          }
+
+          // Add element cell
+          const cellWidth = (element.width / paperFormat.width) * 100;
+          tableCells.push(new TableCell({
+            children: [new Paragraph({
+              children: [new TextRun({
+                text: value,
+                font: element.styles?.fontFamily || element.fontFamily,
+                size: (element.styles?.fontSize || element.fontSize) * 2,
+                bold: element.styles?.fontWeight === 'bold' || element.bold,
+                color: element.styles?.color?.replace('#', '') || element.color?.replace('#', '') || '000000'
+              })],
+              alignment: this.getAlignment(element.styles?.textAlign || element.textAlign)
+            })],
+            width: {
+              size: Math.max(5, cellWidth),
+              type: WidthType.PERCENTAGE
+            },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }
+            },
+            margins: {
+              top: 0,
+              bottom: 0,
+              left: 50,
+              right: 50
+            }
+          }));
+
+          lastX = element.x + element.width;
+        }
+
+        // Add final empty cell if needed
+        const remainingWidth = 100 - tableCells.reduce((sum, cell) => {
+          return sum + (cell.width?.size || 0);
+        }, 0);
+
+        if (remainingWidth > 5) {
+          tableCells.push(new TableCell({
+            children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+            width: {
+              size: remainingWidth,
+              type: WidthType.PERCENTAGE
+            },
+            borders: {
+              top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+              right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }
+            }
+          }));
+        }
+
+        if (tableCells.length > 0) {
+          tableRows.push(new TableRow({
+            children: tableCells,
+            height: {
+              value: Math.max(300, (rowElements[0]?.height || 20) * 20), // Convert to twips
+              rule: "atLeast"
+            }
+          }));
+        }
+      }
+
+      // Create and add table
+      if (tableRows.length > 0) {
+        const table = new Table({
+          rows: tableRows,
+          width: {
+            size: 100,
+            type: WidthType.PERCENTAGE
+          },
+          borders: {
+            top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+            insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" }
+          },
+          layout: "fixed" as any
+        });
+
+        // Add table to paragraphs (this is a workaround for docx library)
+        paragraphs.push(table as any);
+      }
+
+    } catch (error) {
+      console.warn('Table-based positioning failed, falling back to relative:', error);
+      // Fallback to relative positioning
+      const fallbackElements = this.createFallbackElements(elements, dataRow, headers);
+      paragraphs.push(...fallbackElements);
+    }
+
+    return paragraphs;
+  }
+
+  /**
+   * Get alignment type from string
+   */
+  private getAlignment(textAlign?: string): any {
+    const { AlignmentType } = require('docx');
+    
+    switch (textAlign) {
+      case 'center':
+        return AlignmentType.CENTER;
+      case 'right':
+        return AlignmentType.RIGHT;
+      case 'justify':
+        return AlignmentType.JUSTIFIED;
+      default:
+        return AlignmentType.LEFT;
     }
   }
 

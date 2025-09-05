@@ -97,6 +97,7 @@ export interface DocumentGenerationOptions {
   rowIndex?: number;
   includeHeaders?: boolean;
   pageOrientation?: 'portrait' | 'landscape';
+  positioningMode?: 'absolute' | 'relative' | 'hybrid';
   margins?: {
     top: number;
     right: number;
