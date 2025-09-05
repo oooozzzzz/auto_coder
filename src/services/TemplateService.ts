@@ -1,4 +1,4 @@
-import { Template, TemplateElement, PaperFormat, ITemplateService } from '@/types';
+import { Template, TemplateElement, PaperFormat, ITemplateService, ElementStyles } from '@/types';
 import { PAPER_FORMATS, DEFAULT_ELEMENT_STYLES } from '@/constants';
 import { generateId } from '@/utils/formatters';
 
@@ -16,8 +16,8 @@ class TemplateService implements ITemplateService {
       name: name.trim(),
       paperFormat,
       elements: elements.map(element => ({ ...element })), // Deep copy elements
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
   }
 
@@ -76,11 +76,11 @@ class TemplateService implements ITemplateService {
     }
 
     // Check dates
-    if (!(template.createdAt instanceof Date) || isNaN(template.createdAt.getTime())) {
+    if (typeof template.createdAt !== 'string') {
       return { isValid: false, error: 'Неверная дата создания' };
     }
 
-    if (!(template.updatedAt instanceof Date) || isNaN(template.updatedAt.getTime())) {
+    if (typeof template.updatedAt !== 'string') {
       return { isValid: false, error: 'Неверная дата обновления' };
     }
 
@@ -114,27 +114,29 @@ class TemplateService implements ITemplateService {
       return { isValid: false, error: 'Элемент слишком маленький (минимум 10x10)' };
     }
 
-    // Check styles
-    if (!element.styles || typeof element.styles !== 'object') {
-      return { isValid: false, error: 'Отсутствуют стили элемента' };
-    }
-
-    const styles = element.styles;
-    
-    if (typeof styles.fontSize !== 'number' || styles.fontSize < 6 || styles.fontSize > 72) {
+    // Check basic style properties
+    if (typeof element.fontSize !== 'number' || element.fontSize < 6 || element.fontSize > 72) {
       return { isValid: false, error: 'Неверный размер шрифта (6-72)' };
     }
 
-    if (!['normal', 'bold'].includes(styles.fontWeight)) {
-      return { isValid: false, error: 'Неверный вес шрифта' };
-    }
-
-    if (!['left', 'center', 'right'].includes(styles.textAlign)) {
+    if (!['left', 'center', 'right'].includes(element.textAlign)) {
       return { isValid: false, error: 'Неверное выравнивание текста' };
     }
 
-    if (!styles.fontFamily || typeof styles.fontFamily !== 'string') {
+    if (!element.fontFamily || typeof element.fontFamily !== 'string') {
       return { isValid: false, error: 'Отсутствует семейство шрифтов' };
+    }
+
+    if (typeof element.bold !== 'boolean') {
+      return { isValid: false, error: 'Неверное значение bold' };
+    }
+
+    if (typeof element.italic !== 'boolean') {
+      return { isValid: false, error: 'Неверное значение italic' };
+    }
+
+    if (typeof element.underline !== 'boolean') {
+      return { isValid: false, error: 'Неверное значение underline' };
     }
 
     return { isValid: true };
@@ -154,8 +156,8 @@ class TemplateService implements ITemplateService {
       id: generateId(),
       name: `${template.name} (копия)`,
       elements: clonedElements,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     };
   }
 
@@ -166,7 +168,7 @@ class TemplateService implements ITemplateService {
     const updatedTemplate = {
       ...template,
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date().toISOString()
     };
 
     // Don't allow changing ID or creation date
@@ -231,11 +233,19 @@ class TemplateService implements ITemplateService {
   /**
    * Update element styles
    */
-  updateElementStyles(template: Template, elementId: string, styles: Partial<TemplateElement['styles']>): Template {
+  updateElementStyles(template: Template, elementId: string, styles: Partial<ElementStyles>): Template {
     const element = template.elements.find(el => el.id === elementId);
     if (!element) return template;
 
-    const updatedStyles = { ...element.styles, ...styles };
+    // Ensure element has styles object
+    const currentStyles = element.styles || {
+      fontSize: 12,
+      fontWeight: 'normal' as const,
+      textAlign: 'left' as const,
+      fontFamily: 'Arial'
+    };
+    
+    const updatedStyles = { ...currentStyles, ...styles };
     return this.updateElement(template, elementId, { styles: updatedStyles });
   }
 
@@ -326,6 +336,26 @@ class TemplateService implements ITemplateService {
     } catch (error) {
       throw new Error(`Ошибка импорта шаблона: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
     }
+  }
+
+  /**
+   * Save template (placeholder for storage integration)
+   */
+  async saveTemplate(template: Template): Promise<void> {
+    // Validate template before saving
+    const validation = this.validateTemplate(template);
+    if (!validation.isValid) {
+      throw new Error(`Ошибка валидации шаблона: ${validation.error}`);
+    }
+
+    // Here you would integrate with StorageService
+    // For now, just simulate async operation
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log('Template saved:', template.name);
+        resolve();
+      }, 100);
+    });
   }
 }
 

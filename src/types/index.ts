@@ -1,8 +1,9 @@
 // Core data types for Excel processing
 export interface ExcelData {
+  filename: string;
   headers: string[];
   rows: Record<string, any>[];
-  sheetNames: string[];
+  sheets: string[];
   selectedSheet: string;
 }
 
@@ -12,18 +13,30 @@ export interface Template {
   name: string;
   paperFormat: PaperFormat;
   elements: TemplateElement[];
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TemplateElement {
   id: string;
   fieldName: string;
+  displayName?: string;
+  type: string;
   x: number;
   y: number;
   width: number;
   height: number;
-  styles: ElementStyles;
+  fontSize: number;
+  fontFamily: string;
+  color: string;
+  backgroundColor: string;
+  borderWidth: number;
+  borderColor: string;
+  textAlign: 'left' | 'center' | 'right';
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  styles?: ElementStyles;
 }
 
 export interface ElementStyles {
@@ -46,8 +59,10 @@ export interface PaperFormat {
 // Field definitions for drag and drop
 export interface FieldDefinition {
   name: string;
-  type: 'excel' | 'system';
+  displayName?: string;
+  type: 'excel' | 'system' | 'text';
   description?: string;
+  required?: boolean;
 }
 
 // Error handling types
@@ -164,9 +179,7 @@ export interface FileUploaderProps {
 
 export interface DataPreviewProps {
   data: ExcelData | null;
-  isLoading: boolean;
-  maxRows?: number;
-  onSheetChange?: (sheetName: string) => void;
+  compact?: boolean;
 }
 
 export interface TemplateCanvasProps {
@@ -181,8 +194,10 @@ export interface TemplateCanvasProps {
 }
 
 export interface TemplateManagerProps {
+  isOpen?: boolean;
+  onClose?: () => void;
   currentTemplate: Template | null;
-  onTemplateLoad: (template: Template) => void;
+  onLoadTemplate: (template: Template) => void;
   onTemplateSave?: (template: Template) => void;
   className?: string;
 }

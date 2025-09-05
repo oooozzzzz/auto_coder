@@ -173,7 +173,7 @@ export const getDataSummary = (data: ExcelData) => {
   const summary = {
     totalRows: data.rows.length,
     totalColumns: data.headers.length,
-    sheetCount: data.sheetNames.length,
+    sheetCount: data.sheets.length,
     currentSheet: data.selectedSheet,
     columns: data.headers.map(header => ({
       name: header,

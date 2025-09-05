@@ -1,4 +1,5 @@
 import { Document, Paragraph, TextRun, AlignmentType, Packer } from 'docx';
+import JSZip from 'jszip';
 import { Template, TemplateElement, ExcelData, DocumentGenerationOptions, IDocumentService } from '@/types';
 import { SYSTEM_FIELDS } from '@/constants';
 
@@ -142,10 +143,10 @@ class DocumentService implements IDocumentService {
         
         textRuns.push(new TextRun({
           text: value,
-          font: element.styles.fontFamily,
-          size: element.styles.fontSize * 2, // Convert to half-points
-          bold: element.styles.fontWeight === 'bold',
-          color: element.styles.color?.replace('#', '') || '000000'
+          font: element.styles?.fontFamily || element.fontFamily,
+          size: (element.styles?.fontSize || element.fontSize) * 2, // Convert to half-points
+          bold: element.styles?.fontWeight === 'bold' || element.bold,
+          color: element.styles?.color?.replace('#', '') || element.color?.replace('#', '') || '000000'
         }));
       }
 
@@ -153,9 +154,10 @@ class DocumentService implements IDocumentService {
       const firstElement = sortedGroup[0];
       let alignment;
       
-      if (firstElement.styles.textAlign === 'center') {
+      const textAlign = firstElement.styles?.textAlign || firstElement.textAlign;
+      if (textAlign === 'center') {
         alignment = AlignmentType.CENTER;
-      } else if (firstElement.styles.textAlign === 'right') {
+      } else if (textAlign === 'right') {
         alignment = AlignmentType.RIGHT;
       } else {
         alignment = AlignmentType.LEFT;
@@ -389,15 +391,83 @@ class DocumentService implements IDocumentService {
     template: Template,
     excelData: ExcelData
   ): Promise<void> {
-    // This would require a ZIP library like JSZip
-    // For now, download documents individually
-    for (let i = 0; i < documents.length; i++) {
-      const filename = this.createFilename(template, i);
-      this.downloadDocument(documents[i], filename);
+    try {
+      if (documents.length === 0) {
+        throw new Error('Нет документов для загрузки');
+      }
+
+      // If only one document, download directly
+      if (documents.length === 1) {
+        const filename = this.createFilename(template, 0);
+        this.downloadDocument(documents[0], filename);
+        return;
+      }
+
+      // Create ZIP archive for multiple documents
+      const zip = new JSZip();
       
-      // Add small delay between downloads
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Add each document to ZIP
+      for (let i = 0; i < documents.length; i++) {
+        const filename = this.createFilename(template, i);
+        const buffer = await documents[i].arrayBuffer();
+        zip.file(filename, buffer);
+      }
+
+      // Generate ZIP blob
+      const zipBlob = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+      });
+
+      // Download ZIP file
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+      const baseName = template.name.replace(/[^a-zA-Zа-яА-Я0-9\s]/g, '').trim();
+      const zipFilename = `${baseName}_все_документы_${timestamp}.zip`;
+      
+      this.downloadDocument(zipBlob, zipFilename);
+      
+    } catch (error) {
+      console.error('Error creating ZIP archive:', error);
+      
+      // Fallback to individual downloads
+      console.log('Falling back to individual downloads...');
+      for (let i = 0; i < documents.length; i++) {
+        const filename = this.createFilename(template, i);
+        this.downloadDocument(documents[i], filename);
+        
+        // Add small delay between downloads
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
     }
+  }
+
+  /**
+   * Download documents with retry mechanism
+   */
+  async downloadDocumentWithRetry(
+    blob: Blob, 
+    filename: string, 
+    maxRetries: number = 3
+  ): Promise<void> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        this.downloadDocument(blob, filename);
+        return; // Success
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Неизвестная ошибка');
+        console.warn(`Download attempt ${attempt} failed:`, error);
+        
+        if (attempt < maxRetries) {
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        }
+      }
+    }
+    
+    throw new Error(`Не удалось скачать файл после ${maxRetries} попыток: ${lastError?.message}`);
   }
 }
 

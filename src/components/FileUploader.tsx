@@ -1,284 +1,206 @@
 'use client';
 
-import React, { useCallback, useState, useRef } from 'react';
-import { FileUploaderProps, SheetInfo } from '@/types';
+import React, { useCallback, useState } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { ExcelData } from '@/types';
 import { ExcelService } from '@/services/ExcelService';
-import { SUPPORTED_FILE_EXTENSIONS, ERROR_MESSAGES } from '@/constants';
-import { validateFileSize, validateFileType } from '@/utils/validators';
-import { formatFileSize } from '@/utils/formatters';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-const FileUploader: React.FC<FileUploaderProps> = ({
-  onFileUpload,
-  onError,
-  isLoading = false,
-  accept = '.xlsx,.xls,.csv'
-}) => {
-  const [isDragOver, setIsDragOver] = useState(false);
+interface FileUploaderProps {
+  onFileUpload: (data: ExcelData) => void;
+  onError: (error: string) => void;
+  isLoading?: boolean;
+}
+
+const FileUploader: React.FC<FileUploaderProps> = ({ onFileUpload, onError, isLoading = false }) => {
+  const [selectedSheet, setSelectedSheet] = useState<string>('');
+  const [availableSheets, setAvailableSheets] = useState<string[]>([]);
+  const [parsedData, setParsedData] = useState<ExcelData | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [availableSheets, setAvailableSheets] = useState<SheetInfo[]>([]);
 
-  const [showSheetSelector, setShowSheetSelector] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
 
-  const resetState = useCallback(() => {
-    setSelectedFile(null);
-    setAvailableSheets([]);
-    setShowSheetSelector(false);
-    setUploadProgress(0);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, []);
-
-  const validateFile = useCallback((file: File): string | null => {
-    // Check file size
-    const sizeValidation = validateFileSize(file.size);
-    if (!sizeValidation.isValid) {
-      return sizeValidation.error || ERROR_MESSAGES.FILE_TOO_LARGE;
-    }
-
-    // Check file type
-    const typeValidation = validateFileType(file.type, file.name);
-    if (!typeValidation.isValid) {
-      return typeValidation.error || ERROR_MESSAGES.INVALID_FILE_TYPE;
-    }
-
-    return null;
-  }, []);
-
-  const processFile = useCallback(async (file: File, sheetName?: string) => {
     try {
-      setUploadProgress(10);
-      
+      setUploadProgress(25);
       const excelService = new ExcelService();
-      setUploadProgress(30);
+      const result = await excelService.parseFile(file);
+      setUploadProgress(75);
       
-      const data = await excelService.parseFile(file, sheetName);
-      setUploadProgress(80);
-      
-      // If multiple sheets and no specific sheet selected, show sheet selector
-      if (data.sheetNames.length > 1 && !sheetName) {
-        const sheets: SheetInfo[] = await Promise.all(
-          data.sheetNames.map(async (name) => {
-            const sheetData = await excelService.getSheetData(file, name);
-            return {
-              name,
-              rowCount: sheetData.rows.length,
-              columnCount: sheetData.headers.length,
-              hasHeaders: sheetData.headers.length > 0
-            };
-          })
-        );
-        
-        setAvailableSheets(sheets);
-        setShowSheetSelector(true);
-        setUploadProgress(100);
-        return;
-      }
+      const dataWithFilename = { ...result, filename: file.name };
+      setAvailableSheets(result.sheets);
+      setParsedData(dataWithFilename);
       
       setUploadProgress(100);
-      onFileUpload(data);
-      resetState();
       
+      // Auto-select first sheet if only one exists
+      if (result.sheets.length === 1) {
+        const sheetName = result.sheets[0];
+        setSelectedSheet(sheetName);
+        onFileUpload(dataWithFilename);
+      } else {
+        setSelectedSheet(result.sheets[0]);
+      }
     } catch (error) {
-      console.error('File processing error:', error);
-      onError(error instanceof Error ? error.message : ERROR_MESSAGES.PARSING_FAILED);
-      resetState();
+      console.error('File parsing error:', error);
+      onError(error instanceof Error ? error.message : 'Ошибка при обработке файла');
+      setUploadProgress(0);
     }
-  }, [onFileUpload, onError, resetState]);
+  }, [onFileUpload, onError]);
 
-  const handleFileSelect = useCallback(async (file: File) => {
-    const validationError = validateFile(file);
-    if (validationError) {
-      onError(validationError);
-      return;
-    }
-
-    setSelectedFile(file);
-    await processFile(file);
-  }, [validateFile, processFile, onError]);
-
-  const handleSheetSelect = useCallback(async (sheetName: string) => {
-    if (!selectedFile) return;
+  const handleSheetSelect = (sheetName: string) => {
+    if (!parsedData) return;
     
-    setShowSheetSelector(false);
-    await processFile(selectedFile, sheetName);
-  }, [selectedFile, processFile]);
+    setSelectedSheet(sheetName);
+    const updatedData = { ...parsedData, selectedSheet: sheetName };
+    onFileUpload(updatedData);
+  };
 
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      handleFileSelect(files[0]);
-    }
-  }, [handleFileSelect]);
-
-  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      handleFileSelect(files[0]);
-    }
-  }, [handleFileSelect]);
-
-  const handleBrowseClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  if (showSheetSelector) {
-    return (
-      <div className="w-full max-w-md mx-auto p-6 bg-white rounded-lg border-2 border-gray-200">
-        <div className="text-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Выберите лист для импорта
-          </h3>
-          <p className="text-sm text-gray-600 mt-1">
-            Файл содержит несколько листов. Выберите нужный:
-          </p>
-        </div>
-        
-        <div className="space-y-2 mb-4">
-          {availableSheets.map((sheet) => (
-            <button
-              key={sheet.name}
-              onClick={() => handleSheetSelect(sheet.name)}
-              className="w-full p-3 text-left border border-gray-200 rounded-md hover:border-blue-300 hover:bg-blue-50 transition-colors"
-            >
-              <div className="font-medium text-gray-900">{sheet.name}</div>
-              <div className="text-sm text-gray-600">
-                {sheet.rowCount} строк, {sheet.columnCount} столбцов
-                {sheet.hasHeaders && ' (с заголовками)'}
-              </div>
-            </button>
-          ))}
-        </div>
-        
-        <button
-          onClick={resetState}
-          className="w-full px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-        >
-          Отмена
-        </button>
-      </div>
-    );
-  }
+  const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
+    onDrop,
+    accept: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/vnd.ms-excel': ['.xls']
+    },
+    multiple: false,
+    disabled: isLoading,
+    maxSize: 10 * 1024 * 1024 // 10MB
+  });
 
   return (
-    <div className="w-full max-w-md mx-auto">
-      <div
-        className={`
-          relative p-8 border-2 border-dashed rounded-lg text-center transition-colors
-          ${isDragOver 
-            ? 'border-blue-400 bg-blue-50' 
-            : 'border-gray-300 hover:border-gray-400'
-          }
-          ${isLoading ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-        `}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-        onClick={handleBrowseClick}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={accept}
-          onChange={handleFileInputChange}
-          className="hidden"
-          disabled={isLoading}
-        />
-        
-        {isLoading ? (
-          <div className="space-y-4">
-            <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">
-                Обработка файла...
-              </p>
-              <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-gray-600 mt-1">
-                {uploadProgress}%
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="w-12 h-12 mx-auto text-gray-400">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={1.5} 
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" 
-                />
-              </svg>
-            </div>
-            
-            <div>
-              <p className="text-lg font-medium text-gray-900">
-                {isDragOver ? 'Отпустите файл здесь' : 'Загрузите Excel файл'}
-              </p>
-              <p className="text-sm text-gray-600 mt-1">
-                Перетащите файл сюда или нажмите для выбора
-              </p>
-            </div>
-            
-            <div className="text-xs text-gray-500">
-              <p>Поддерживаемые форматы: {SUPPORTED_FILE_EXTENSIONS.join(', ')}</p>
-              <p>Максимальный размер: 20MB</p>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* File Drop Zone */}
+      <Card 
+        {...getRootProps()}
+        className={cn(
+          "cursor-pointer transition-all duration-200 border-2 border-dashed",
+          isDragActive && !isDragReject && "border-primary bg-primary/5",
+          isDragReject && "border-destructive bg-destructive/5",
+          isLoading && "opacity-50 cursor-not-allowed",
+          !isDragActive && !isDragReject && "hover:border-primary/50 hover:bg-primary/5"
         )}
-      </div>
-      
-      {selectedFile && !isLoading && (
-        <div className="mt-4 p-3 bg-gray-50 rounded-md">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {selectedFile.name}
+      >
+        <CardContent className="p-8 text-center">
+          <input {...getInputProps()} />
+          
+          <div className="space-y-4">
+            <div className="flex justify-center">
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              ) : isDragReject ? (
+                <AlertCircle className="h-12 w-12 text-destructive" />
+              ) : parsedData ? (
+                <CheckCircle className="h-12 w-12 text-green-500" />
+              ) : (
+                <Upload className="h-12 w-12 text-muted-foreground" />
+              )}
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold">
+                {isLoading ? 'Обработка файла...' : 
+                 isDragReject ? 'Неподдерживаемый формат' :
+                 parsedData ? 'Файл загружен' :
+                 'Загрузите Excel файл'}
+              </h3>
+              
+              <p className="text-sm text-muted-foreground mt-1">
+                {isDragActive && !isDragReject ? 'Отпустите файл здесь' : 
+                 isDragReject ? 'Поддерживаются только .xlsx и .xls файлы' :
+                 parsedData ? `Файл: ${parsedData.filename || 'Unknown'}` :
+                 <>
+                   <span className="hidden sm:inline">Перетащите файл сюда или </span>
+                   <span className="text-primary font-medium">нажмите для выбора</span>
+                 </>
+                }
               </p>
-              <p className="text-xs text-gray-600">
-                {formatFileSize(selectedFile.size)}
+              
+              {!parsedData && (
+                <div className="flex justify-center space-x-2 mt-2">
+                  <Badge variant="secondary">.xlsx</Badge>
+                  <Badge variant="secondary">.xls</Badge>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Progress Bar */}
+          {isLoading && uploadProgress > 0 && (
+            <div className="mt-4">
+              <Progress value={uploadProgress} className="w-full" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {uploadProgress}% завершено
               </p>
             </div>
-            <button
-              onClick={resetState}
-              className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
-              title="Удалить файл"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Sheet Selector */}
+      {availableSheets.length > 1 && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Выберите лист для обработки:</h4>
+                <Select value={selectedSheet} onValueChange={handleSheetSelect}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Выберите лист" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSheets.map((sheet) => (
+                      <SelectItem key={sheet} value={sheet}>
+                        <div className="flex items-center space-x-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          <span>{sheet}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {selectedSheet && parsedData && (
+                <div className="text-sm text-muted-foreground">
+                  Лист &quot;{selectedSheet}&quot; содержит {parsedData.rows?.length || 0} строк данных
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* File Info */}
+      {parsedData && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center space-x-2">
+                <FileSpreadsheet className="h-4 w-4 text-green-500" />
+                <span className="font-medium">Файл загружен успешно</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setParsedData(null);
+                  setAvailableSheets([]);
+                  setSelectedSheet('');
+                  setUploadProgress(0);
+                }}
+              >
+                Загрузить другой файл
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

@@ -2,6 +2,25 @@
 
 import React, { useState, useCallback } from 'react';
 import { TemplateElement, PropertiesPanelProps } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Bold, 
+  Italic, 
+  Underline, 
+  AlignLeft, 
+  AlignCenter, 
+  AlignRight,
+  Palette,
+  Type,
+  Move,
+  Maximize2
+} from 'lucide-react';
 
 // Font family options
 const FONT_FAMILIES = [
@@ -17,45 +36,6 @@ const FONT_FAMILIES = [
 // Font size presets
 const FONT_SIZE_PRESETS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 72];
 
-// Style presets
-const STYLE_PRESETS = {
-  'Заголовок 1': {
-    fontSize: 24,
-    fontWeight: 'bold' as const,
-    textAlign: 'center' as const,
-    fontFamily: 'Arial',
-    color: '#1f2937'
-  },
-  'Заголовок 2': {
-    fontSize: 18,
-    fontWeight: 'bold' as const,
-    textAlign: 'left' as const,
-    fontFamily: 'Arial',
-    color: '#374151'
-  },
-  'Обычный текст': {
-    fontSize: 12,
-    fontWeight: 'normal' as const,
-    textAlign: 'left' as const,
-    fontFamily: 'Arial',
-    color: '#000000'
-  },
-  'Мелкий текст': {
-    fontSize: 10,
-    fontWeight: 'normal' as const,
-    textAlign: 'left' as const,
-    fontFamily: 'Arial',
-    color: '#6b7280'
-  },
-  'Подпись': {
-    fontSize: 8,
-    fontWeight: 'normal' as const,
-    textAlign: 'center' as const,
-    fontFamily: 'Arial',
-    color: '#9ca3af'
-  }
-};
-
 const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   selectedElement,
   onElementUpdate,
@@ -64,15 +44,12 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   // Handle style updates
-  const handleStyleUpdate = useCallback((styleUpdates: Partial<TemplateElement['styles']>) => {
+  const handleStyleUpdate = useCallback((styleUpdates: Partial<Pick<TemplateElement, 'fontSize' | 'fontFamily' | 'color' | 'backgroundColor' | 'textAlign' | 'bold' | 'italic' | 'underline'>>) => {
     if (!selectedElement) return;
     
     const updatedElement = {
       ...selectedElement,
-      styles: {
-        ...selectedElement.styles,
-        ...styleUpdates
-      }
+      ...styleUpdates
     };
     
     onElementUpdate(updatedElement);
@@ -90,321 +67,280 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
     onElementUpdate(updatedElement);
   }, [selectedElement, onElementUpdate]);
 
-  // Apply style preset
-  const handlePresetApply = useCallback((presetName: string) => {
-    const preset = STYLE_PRESETS[presetName as keyof typeof STYLE_PRESETS];
-    if (preset) {
-      handleStyleUpdate(preset);
-    }
-  }, [handleStyleUpdate]);
-
-  // No element selected
   if (!selectedElement) {
     return (
-      <div className={`bg-white border border-gray-200 rounded-lg ${className}`}>
-        <div className="p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Свойства элемента</h3>
-        </div>
-        
-        <div className="p-8 text-center text-gray-500">
-          <div className="w-16 h-16 mx-auto mb-4 text-gray-300">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={1} 
-                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" 
-              />
-            </svg>
+      <Card className={className}>
+        <CardContent className="p-6 text-center">
+          <div className="text-muted-foreground">
+            <Type className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Выберите элемент для редактирования свойств</p>
           </div>
-          <p className="text-sm font-medium">Элемент не выбран</p>
-          <p className="text-xs mt-1">Выберите элемент на холсте для редактирования</p>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg ${className}`}>
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">Свойства элемента</h3>
-        <p className="text-sm text-gray-600 mt-1">
-          {selectedElement.fieldName}
-        </p>
-      </div>
+    <Card className={className}>
+      <CardHeader>
+        <CardTitle className="flex items-center space-x-2">
+          <Type className="h-5 w-5" />
+          <span>Свойства элемента</span>
+        </CardTitle>
+        <div className="text-sm text-muted-foreground">
+          <Badge variant="outline">{selectedElement.fieldName}</Badge>
+        </div>
+      </CardHeader>
 
-      <div className="p-4 space-y-6 max-h-96 overflow-y-auto">
-        {/* Style Presets */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Быстрые стили
-          </label>
-          <div className="grid grid-cols-1 gap-2">
-            {Object.keys(STYLE_PRESETS).map((presetName) => (
-              <button
-                key={presetName}
-                onClick={() => handlePresetApply(presetName)}
-                className="px-3 py-2 text-sm text-left border border-gray-200 rounded hover:border-blue-300 hover:bg-blue-50 transition-colors"
+      <CardContent className="space-y-6">
+        {/* Font Settings */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium flex items-center space-x-2">
+            <Type className="h-4 w-4" />
+            <span>Шрифт</span>
+          </h4>
+
+          {/* Font Family */}
+          <div className="space-y-2">
+            <Label htmlFor="fontFamily">Семейство шрифтов</Label>
+            <Select value={selectedElement.fontFamily} onValueChange={(value) => handleStyleUpdate({ fontFamily: value })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {FONT_FAMILIES.map((font) => (
+                  <SelectItem key={font} value={font} style={{ fontFamily: font }}>
+                    {font}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Font Size */}
+          <div className="space-y-2">
+            <Label htmlFor="fontSize">Размер шрифта</Label>
+            <div className="flex space-x-2">
+              <Select 
+                value={selectedElement.fontSize.toString()} 
+                onValueChange={(value) => handleStyleUpdate({ fontSize: Number(value) })}
               >
-                {presetName}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Position and Size */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Позиция и размер
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">X</label>
-              <input
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_SIZE_PRESETS.map((size) => (
+                    <SelectItem key={size} value={size.toString()}>
+                      {size}px
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
                 type="number"
-                value={Math.round(selectedElement.x)}
-                onChange={(e) => handlePositionUpdate({ x: Number(e.target.value) })}
-                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-                min="0"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Y</label>
-              <input
-                type="number"
-                value={Math.round(selectedElement.y)}
-                onChange={(e) => handlePositionUpdate({ y: Number(e.target.value) })}
-                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-                min="0"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Ширина</label>
-              <input
-                type="number"
-                value={Math.round(selectedElement.width)}
-                onChange={(e) => handlePositionUpdate({ width: Number(e.target.value) })}
-                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-                min="10"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Высота</label>
-              <input
-                type="number"
-                value={Math.round(selectedElement.height)}
-                onChange={(e) => handlePositionUpdate({ height: Number(e.target.value) })}
-                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-                min="10"
+                value={selectedElement.fontSize}
+                onChange={(e) => handleStyleUpdate({ fontSize: Number(e.target.value) })}
+                className="w-20"
+                min="6"
+                max="72"
               />
             </div>
           </div>
-        </div>
 
-        {/* Font Family */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Шрифт
-          </label>
-          <select
-            value={selectedElement.styles.fontFamily}
-            onChange={(e) => handleStyleUpdate({ fontFamily: e.target.value })}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-          >
-            {FONT_FAMILIES.map((font) => (
-              <option key={font} value={font} style={{ fontFamily: font }}>
-                {font}
-              </option>
-            ))}
-          </select>
-        </div>
+          {/* Font Style */}
+          <div className="space-y-2">
+            <Label>Стиль шрифта</Label>
+            <div className="flex space-x-1">
+              <Button
+                variant={selectedElement.bold ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleStyleUpdate({ bold: !selectedElement.bold })}
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedElement.italic ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleStyleUpdate({ italic: !selectedElement.italic })}
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedElement.underline ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleStyleUpdate({ underline: !selectedElement.underline })}
+              >
+                <Underline className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
 
-        {/* Font Size */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Размер шрифта
-          </label>
-          <div className="flex items-center space-x-2">
-            <select
-              value={selectedElement.styles.fontSize}
-              onChange={(e) => handleStyleUpdate({ fontSize: Number(e.target.value) })}
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-            >
-              {FONT_SIZE_PRESETS.map((size) => (
-                <option key={size} value={size}>
-                  {size}px
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              value={selectedElement.styles.fontSize}
-              onChange={(e) => handleStyleUpdate({ fontSize: Number(e.target.value) })}
-              className="w-16 px-2 py-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none"
-              min="6"
-              max="72"
-            />
+          {/* Text Alignment */}
+          <div className="space-y-2">
+            <Label>Выравнивание</Label>
+            <div className="flex space-x-1">
+              <Button
+                variant={selectedElement.textAlign === 'left' ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleStyleUpdate({ textAlign: 'left' })}
+              >
+                <AlignLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedElement.textAlign === 'center' ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleStyleUpdate({ textAlign: 'center' })}
+              >
+                <AlignCenter className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={selectedElement.textAlign === 'right' ? "default" : "outline"}
+                size="sm"
+                onClick={() => handleStyleUpdate({ textAlign: 'right' })}
+              >
+                <AlignRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Font Weight */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Начертание
-          </label>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => handleStyleUpdate({ fontWeight: 'normal' })}
-              className={`flex-1 px-3 py-2 text-sm border rounded transition-colors ${
-                selectedElement.styles.fontWeight === 'normal'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Обычный
-            </button>
-            <button
-              onClick={() => handleStyleUpdate({ fontWeight: 'bold' })}
-              className={`flex-1 px-3 py-2 text-sm border rounded font-bold transition-colors ${
-                selectedElement.styles.fontWeight === 'bold'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              Жирный
-            </button>
-          </div>
-        </div>
+        <Separator />
 
-        {/* Text Alignment */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Выравнивание
-          </label>
-          <div className="flex space-x-1">
-            <button
-              onClick={() => handleStyleUpdate({ textAlign: 'left' })}
-              className={`flex-1 px-3 py-2 text-sm border rounded transition-colors ${
-                selectedElement.styles.textAlign === 'left'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-              title="По левому краю"
-            >
-              <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" />
-              </svg>
-            </button>
-            <button
-              onClick={() => handleStyleUpdate({ textAlign: 'center' })}
-              className={`flex-1 px-3 py-2 text-sm border rounded transition-colors ${
-                selectedElement.styles.textAlign === 'center'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-              title="По центру"
-            >
-              <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M8 12h8M6 18h12" />
-              </svg>
-            </button>
-            <button
-              onClick={() => handleStyleUpdate({ textAlign: 'right' })}
-              className={`flex-1 px-3 py-2 text-sm border rounded transition-colors ${
-                selectedElement.styles.textAlign === 'right'
-                  ? 'bg-blue-500 text-white border-blue-500'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              }`}
-              title="По правому краю"
-            >
-              <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M12 12h8M6 18h16" />
-              </svg>
-            </button>
-          </div>
-        </div>
+        {/* Color Settings */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium flex items-center space-x-2">
+            <Palette className="h-4 w-4" />
+            <span>Цвета</span>
+          </h4>
 
-        {/* Text Color */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Цвет текста
-          </label>
-          <div className="flex items-center space-x-2">
-            <div className="relative">
-              <button
+          {/* Text Color */}
+          <div className="space-y-2">
+            <Label htmlFor="textColor">Цвет текста</Label>
+            <div className="flex space-x-2">
+              <div
+                className="w-10 h-10 border border-input rounded cursor-pointer"
+                style={{ backgroundColor: selectedElement.color }}
                 onClick={() => setShowColorPicker(!showColorPicker)}
-                className="w-10 h-8 border border-gray-300 rounded cursor-pointer"
-                style={{ backgroundColor: selectedElement.styles.color }}
                 title="Выбрать цвет"
               />
-              {showColorPicker && (
-                <div className="absolute top-10 left-0 z-10 bg-white border border-gray-300 rounded-lg shadow-lg p-3">
-                  <div className="grid grid-cols-6 gap-1 mb-2">
-                    {[
-                      '#000000', '#333333', '#666666', '#999999', '#cccccc', '#ffffff',
-                      '#ff0000', '#ff6600', '#ffcc00', '#33cc00', '#0066cc', '#6600cc',
-                      '#cc0066', '#ff3366', '#ff9933', '#ccff33', '#33ccff', '#9933ff'
-                    ].map((color) => (
-                      <button
-                        key={color}
-                        onClick={() => {
-                          handleStyleUpdate({ color });
-                          setShowColorPicker(false);
-                        }}
-                        className="w-6 h-6 border border-gray-300 rounded cursor-pointer hover:scale-110 transition-transform"
-                        style={{ backgroundColor: color }}
-                        title={color}
-                      />
-                    ))}
-                  </div>
-                  <input
-                    type="color"
-                    value={selectedElement.styles.color}
-                    onChange={(e) => handleStyleUpdate({ color: e.target.value })}
-                    className="w-full h-8 border border-gray-300 rounded cursor-pointer"
-                  />
-                </div>
-              )}
+              <Input
+                type="text"
+                value={selectedElement.color}
+                onChange={(e) => handleStyleUpdate({ color: e.target.value })}
+                className="flex-1 font-mono"
+                placeholder="#000000"
+              />
             </div>
-            <input
-              type="text"
-              value={selectedElement.styles.color}
-              onChange={(e) => handleStyleUpdate({ color: e.target.value })}
-              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none font-mono"
-              placeholder="#000000"
-            />
+            {showColorPicker && (
+              <Input
+                type="color"
+                value={selectedElement.color}
+                onChange={(e) => handleStyleUpdate({ color: e.target.value })}
+                className="w-full h-10"
+              />
+            )}
+          </div>
+
+          {/* Background Color */}
+          <div className="space-y-2">
+            <Label htmlFor="backgroundColor">Цвет фона</Label>
+            <div className="flex space-x-2">
+              <div
+                className="w-10 h-10 border border-input rounded cursor-pointer"
+                style={{ backgroundColor: selectedElement.backgroundColor }}
+                onClick={() => {/* Handle background color picker */}}
+                title="Выбрать цвет фона"
+              />
+              <Input
+                type="text"
+                value={selectedElement.backgroundColor}
+                onChange={(e) => handleStyleUpdate({ backgroundColor: e.target.value })}
+                className="flex-1 font-mono"
+                placeholder="transparent"
+              />
+            </div>
           </div>
         </div>
+
+        <Separator />
+
+        {/* Position & Size */}
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium flex items-center space-x-2">
+            <Move className="h-4 w-4" />
+            <span>Позиция и размер</span>
+          </h4>
+
+          {/* Position */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="x">X</Label>
+              <Input
+                type="number"
+                value={selectedElement.x}
+                onChange={(e) => handlePositionUpdate({ x: Number(e.target.value) })}
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="y">Y</Label>
+              <Input
+                type="number"
+                value={selectedElement.y}
+                onChange={(e) => handlePositionUpdate({ y: Number(e.target.value) })}
+                className="w-full"
+              />
+            </div>
+          </div>
+
+          {/* Size */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="width">Ширина</Label>
+              <Input
+                type="number"
+                value={selectedElement.width}
+                onChange={(e) => handlePositionUpdate({ width: Number(e.target.value) })}
+                className="w-full"
+                min="10"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="height">Высота</Label>
+              <Input
+                type="number"
+                value={selectedElement.height}
+                onChange={(e) => handlePositionUpdate({ height: Number(e.target.value) })}
+                className="w-full"
+                min="10"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator />
 
         {/* Preview */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Предварительный просмотр
-          </label>
-          <div 
-            className="p-3 border border-gray-200 rounded bg-gray-50"
+        <div className="space-y-2">
+          <Label>Предварительный просмотр</Label>
+          <div
+            className="p-3 border border-input rounded bg-muted/50 min-h-[40px] flex items-center"
             style={{
-              fontSize: selectedElement.styles.fontSize,
-              fontWeight: selectedElement.styles.fontWeight,
-              textAlign: selectedElement.styles.textAlign,
-              fontFamily: selectedElement.styles.fontFamily,
-              color: selectedElement.styles.color
+              fontSize: selectedElement.fontSize,
+              fontWeight: selectedElement.bold ? 'bold' : 'normal',
+              textAlign: selectedElement.textAlign,
+              fontFamily: selectedElement.fontFamily,
+              color: selectedElement.color,
+              backgroundColor: selectedElement.backgroundColor !== 'transparent' ? selectedElement.backgroundColor : undefined,
+              fontStyle: selectedElement.italic ? 'italic' : 'normal',
+              textDecoration: selectedElement.underline ? 'underline' : 'none'
             }}
           >
-            {selectedElement.fieldName}
+            {selectedElement.displayName || selectedElement.fieldName}
           </div>
         </div>
-      </div>
-
-      {/* Close color picker when clicking outside */}
-      {showColorPicker && (
-        <div 
-          className="fixed inset-0 z-0" 
-          onClick={() => setShowColorPicker(false)}
-        />
-      )}
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

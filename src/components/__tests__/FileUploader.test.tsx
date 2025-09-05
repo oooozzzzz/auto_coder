@@ -27,12 +27,13 @@ describe('FileUploader', () => {
   const mockOnError = vi.fn();
 
   const mockExcelData: ExcelData = {
+    filename: 'test.xlsx',
     headers: ['Name', 'Age', 'City'],
     rows: [
       { Name: 'John', Age: 30, City: 'New York' },
       { Name: 'Jane', Age: 25, City: 'London' }
     ],
-    sheetNames: ['Sheet1'],
+    sheets: ['Sheet1'],
     selectedSheet: 'Sheet1'
   };
 
@@ -138,7 +139,7 @@ describe('FileUploader', () => {
   it('shows sheet selector for multi-sheet files', async () => {
     const multiSheetData: ExcelData = {
       ...mockExcelData,
-      sheetNames: ['Sheet1', 'Sheet2', 'Sheet3']
+      sheets: ['Sheet1', 'Sheet2', 'Sheet3']
     };
 
     const { ExcelService } = await import('@/services/ExcelService');
@@ -196,7 +197,7 @@ describe('FileUploader', () => {
   it('handles sheet selection', async () => {
     const multiSheetData: ExcelData = {
       ...mockExcelData,
-      sheetNames: ['Sheet1', 'Sheet2']
+      sheets: ['Sheet1', 'Sheet2']
     };
 
     const { ExcelService } = await import('@/services/ExcelService');
@@ -336,7 +337,7 @@ describe('FileUploader', () => {
   it('allows canceling sheet selection', async () => {
     const multiSheetData: ExcelData = {
       ...mockExcelData,
-      sheetNames: ['Sheet1', 'Sheet2']
+      sheets: ['Sheet1', 'Sheet2']
     };
 
     const { ExcelService } = await import('@/services/ExcelService');

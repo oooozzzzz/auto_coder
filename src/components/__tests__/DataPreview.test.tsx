@@ -5,6 +5,7 @@ import { ExcelData } from '@/types';
 
 describe('DataPreview', () => {
     const mockData: ExcelData = {
+        filename: 'test.xlsx',
         headers: ['Name', 'Age', 'City', 'Email'],
         rows: [
             { Name: 'John Doe', Age: 30, City: 'New York', Email: 'john@example.com' },
@@ -13,31 +14,31 @@ describe('DataPreview', () => {
             { Name: 'Alice Brown', Age: 28, City: 'Tokyo', Email: 'alice@example.com' },
             { Name: 'Charlie Wilson', Age: 32, City: 'Sydney', Email: 'charlie@example.com' }
         ],
-        sheetNames: ['Sheet1'],
+        sheets: ['Sheet1'],
         selectedSheet: 'Sheet1'
     };
 
     const multiSheetData: ExcelData = {
         ...mockData,
-        sheetNames: ['Sheet1', 'Sheet2', 'Sheet3'],
+        sheets: ['Sheet1', 'Sheet2', 'Sheet3'],
         selectedSheet: 'Sheet1'
     };
 
     it('renders loading state', () => {
-        render(<DataPreview data={null} isLoading={true} />);
+        render(<DataPreview data={null}  />);
 
         expect(screen.getByText('Загрузка данных...')).toBeInTheDocument();
     });
 
     it('renders empty state when no data', () => {
-        render(<DataPreview data={null} isLoading={false} />);
+        render(<DataPreview data={null}  />);
 
         expect(screen.getByText('Нет данных для отображения')).toBeInTheDocument();
         expect(screen.getByText('Загрузите Excel файл для просмотра данных')).toBeInTheDocument();
     });
 
     it('renders data table with headers and rows', () => {
-        render(<DataPreview data={mockData} isLoading={false} />);
+        render(<DataPreview data={mockData}  />);
 
         // Check headers
         expect(screen.getByText('Name')).toBeInTheDocument();
@@ -53,7 +54,7 @@ describe('DataPreview', () => {
     });
 
     it('displays statistics correctly', () => {
-        render(<DataPreview data={mockData} isLoading={false} />);
+        render(<DataPreview data={mockData}  />);
 
         expect(screen.getByText('5 строк')).toBeInTheDocument();
         expect(screen.getByText('4 столбцов')).toBeInTheDocument();
@@ -65,8 +66,8 @@ describe('DataPreview', () => {
         render(
             <DataPreview
                 data={multiSheetData}
-                isLoading={false}
-                onSheetChange={mockOnSheetChange}
+                
+                
             />
         );
 
@@ -92,7 +93,7 @@ describe('DataPreview', () => {
             }))
         };
 
-        render(<DataPreview data={largeData} isLoading={false} />);
+        render(<DataPreview data={largeData}  />);
 
         // Should show pagination controls
         expect(screen.getByText('Страница 1 из 2')).toBeInTheDocument();
@@ -105,7 +106,7 @@ describe('DataPreview', () => {
     });
 
     it('handles rows per page change', () => {
-        render(<DataPreview data={mockData} isLoading={false} />);
+        render(<DataPreview data={mockData}  />);
 
         const rowsPerPageSelect = screen.getByDisplayValue('50');
         fireEvent.change(rowsPerPageSelect, { target: { value: '25' } });
@@ -124,24 +125,25 @@ describe('DataPreview', () => {
             }))
         };
 
-        render(<DataPreview data={largeData} isLoading={false} maxRows={100} />);
+        render(<DataPreview data={largeData}   />);
 
         expect(screen.getByText(/Отображаются только первые 100 строк из 200/)).toBeInTheDocument();
     });
 
     it('handles empty cells correctly', () => {
         const dataWithEmptyCells: ExcelData = {
+            filename: 'test.xlsx',
             headers: ['Name', 'Age', 'City'],
             rows: [
                 { Name: 'John', Age: null, City: 'New York' },
                 { Name: '', Age: 25, City: undefined },
                 { Name: 'Bob', Age: 30, City: '' }
             ],
-            sheetNames: ['Sheet1'],
+            sheets: ['Sheet1'],
             selectedSheet: 'Sheet1'
         };
 
-        render(<DataPreview data={dataWithEmptyCells} isLoading={false} />);
+        render(<DataPreview data={dataWithEmptyCells}  />);
 
         // Should show "пусто" for empty cells
         const emptyCells = screen.getAllByText('пусто');
@@ -149,7 +151,7 @@ describe('DataPreview', () => {
     });
 
     it('shows row numbers correctly', () => {
-        render(<DataPreview data={mockData} isLoading={false} />);
+        render(<DataPreview data={mockData}  />);
 
         expect(screen.getByText('1')).toBeInTheDocument();
         expect(screen.getByText('2')).toBeInTheDocument();
@@ -157,7 +159,7 @@ describe('DataPreview', () => {
     });
 
     it('handles hover effects on table rows', () => {
-        render(<DataPreview data={mockData} isLoading={false} />);
+        render(<DataPreview data={mockData}  />);
 
         const firstRow = screen.getByText('John Doe').closest('tr');
         expect(firstRow).toHaveClass('hover:bg-gray-50');
@@ -165,6 +167,7 @@ describe('DataPreview', () => {
 
     it('truncates long cell content with title attribute', () => {
         const dataWithLongContent: ExcelData = {
+            filename: 'test.xlsx',
             headers: ['Name', 'Description'],
             rows: [
                 {
@@ -172,11 +175,11 @@ describe('DataPreview', () => {
                     Description: 'This is a very long description that should be truncated in the table cell but shown in full in the title attribute'
                 }
             ],
-            sheetNames: ['Sheet1'],
+            sheets: ['Sheet1'],
             selectedSheet: 'Sheet1'
         };
 
-        render(<DataPreview data={dataWithLongContent} isLoading={false} />);
+        render(<DataPreview data={dataWithLongContent}  />);
 
         const cellWithLongContent = screen.getByText(/This is a very long description/);
         expect(cellWithLongContent.closest('div')).toHaveClass('truncate');

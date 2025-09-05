@@ -4,62 +4,70 @@ import { useState, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { ExcelData, Template, TemplateElement, FieldDefinition } from '@/types';
-import { FileUploader, DataPreview, TemplateCanvas, FieldPalette, TemplateManager } from '@/components';
+import { 
+  FileUploader, 
+  DataPreview, 
+  TemplateCanvas, 
+  FieldPalette, 
+  TemplateManager, 
+  DocumentDownloader, 
+  ErrorBoundary,
+  Header,
+  MobileDrawer,
+  ResponsiveGrid,
+  GridColumn,
+  ResponsiveCard,
+  ResponsiveStack
+} from '@/components';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { FileSpreadsheet, Database, Settings } from 'lucide-react';
 import { PAPER_FORMATS } from '@/constants';
 import templateService from '@/services/TemplateService';
 import { generateId } from '@/utils/formatters';
+import { ErrorProvider, useError } from '@/contexts/ErrorContext';
 
-export default function Home() {
-  const [currentStep, setCurrentStep] = useState<'upload' | 'template' | 'generate'>('upload');
+type Step = 'upload' | 'template' | 'generate';
+
+function HomeContent() {
+  const [currentStep, setCurrentStep] = useState<Step>('upload');
   const [excelData, setExcelData] = useState<ExcelData | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null);
   const [selectedElement, setSelectedElement] = useState<TemplateElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [showMobileFieldPalette, setShowMobileFieldPalette] = useState(false);
+  const [showMobileDataPreview, setShowMobileDataPreview] = useState(false);
 
-  // Storage hook for template management (used by TemplateManager internally)
+  const { handleError, showSuccess } = useError();
 
   const handleFileUpload = (data: ExcelData) => {
     setExcelData(data);
     setError(null);
-
-    // Create initial template
-    const template = templateService.createTemplate(
-      `Шаблон для ${data.selectedSheet}`,
-      [],
-      PAPER_FORMATS.A4
-    );
-    setCurrentTemplate(template);
+    
+    // Create default template
+    const defaultTemplate: Template = {
+      id: generateId(),
+      name: `Шаблон для ${data.filename || 'файла'}`,
+      elements: [],
+      paperFormat: PAPER_FORMATS.A4,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    setCurrentTemplate(defaultTemplate);
     setCurrentStep('template');
+    showSuccess('Файл успешно загружен');
   };
 
-  const handleError = (errorMessage: string) => {
+  const handleFileError = (errorMessage: string) => {
     setError(errorMessage);
-    setIsLoading(false);
+    handleError(new Error(errorMessage));
   };
 
-  const handleSheetChange = (sheetName: string) => {
-    if (excelData) {
-      setExcelData({
-        ...excelData,
-        selectedSheet: sheetName
-      });
-    }
-  };
 
-  // Generate available fields from Excel data
-  const availableFields: FieldDefinition[] = useMemo(() => {
-    if (!excelData) return [];
 
-    return excelData.headers.map(header => ({
-      name: header,
-      type: 'excel' as const,
-      description: `Поле из столбца "${header}"`
-    }));
-  }, [excelData]);
-
-  // Template handlers
   const handleTemplateChange = (template: Template) => {
     setCurrentTemplate(template);
   };
@@ -70,248 +78,218 @@ export default function Home() {
 
   const handleElementMove = (elementId: string, x: number, y: number) => {
     if (!currentTemplate) return;
-
-    const updatedTemplate = templateService.moveElement(currentTemplate, elementId, x, y);
-    setCurrentTemplate(updatedTemplate);
+    
+    const updatedElements = currentTemplate.elements.map(el =>
+      el.id === elementId ? { ...el, x, y } : el
+    );
+    
+    setCurrentTemplate({
+      ...currentTemplate,
+      elements: updatedElements,
+      updatedAt: new Date().toISOString()
+    });
   };
 
   const handleElementResize = (elementId: string, width: number, height: number) => {
     if (!currentTemplate) return;
-
-    const updatedTemplate = templateService.resizeElement(currentTemplate, elementId, width, height);
-    setCurrentTemplate(updatedTemplate);
+    
+    const updatedElements = currentTemplate.elements.map(el =>
+      el.id === elementId ? { ...el, width, height } : el
+    );
+    
+    setCurrentTemplate({
+      ...currentTemplate,
+      elements: updatedElements,
+      updatedAt: new Date().toISOString()
+    });
   };
 
   const handleAddMultipleFields = (fields: FieldDefinition[]) => {
     if (!currentTemplate) return;
-
-    const newElements: TemplateElement[] = [];
-    const startX = 50;
-    const startY = 50;
-    const fieldSpacing = 40;
-    const columnWidth = 150;
-    const columnsPerRow = 3;
-
-    fields.forEach((field, index) => {
-      const x = startX + (index % columnsPerRow) * columnWidth;
-      const y = startY + Math.floor(index / columnsPerRow) * fieldSpacing;
-
-      const newElement: TemplateElement = {
-        id: generateId(),
-        fieldName: field.name,
-        x: Math.max(0, x),
-        y: Math.max(0, y),
-        width: 100,
-        height: 30,
-        styles: {
-          fontSize: 12,
-          fontWeight: 'normal',
-          textAlign: 'left',
-          fontFamily: 'Arial',
-          color: '#000000'
-        }
-      };
-
-      newElements.push(newElement);
-    });
-
-    const updatedTemplate = {
+    
+    const newElements: TemplateElement[] = fields.map((field, index) => ({
+      id: generateId(),
+      fieldName: field.name,
+      displayName: field.displayName || field.name,
+      type: 'text',
+      x: 50 + (index * 20),
+      y: 50 + (index * 30),
+      width: 200,
+      height: 30,
+      fontSize: 12,
+      fontFamily: 'Arial',
+      color: '#000000',
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      borderColor: '#000000',
+      textAlign: 'left' as const,
+      bold: false,
+      italic: false,
+      underline: false,
+      styles: {
+        fontSize: 12,
+        fontWeight: 'normal' as const,
+        textAlign: 'left' as const,
+        fontFamily: 'Arial',
+        color: '#000000'
+      }
+    }));
+    
+    setCurrentTemplate({
       ...currentTemplate,
-      elements: [...currentTemplate.elements, ...newElements]
-    };
-
-    setCurrentTemplate(updatedTemplate);
+      elements: [...currentTemplate.elements, ...newElements],
+      updatedAt: new Date().toISOString()
+    });
   };
 
-  // Template management functions
-  const handleSaveTemplate = () => {
-    // This will be handled by TemplateManager component
-    setShowTemplateManager(true);
+  const handleSaveTemplate = async () => {
+    if (!currentTemplate) return;
+    
+    try {
+      setIsLoading(true);
+      await templateService.saveTemplate(currentTemplate);
+      showSuccess('Шаблон успешно сохранен');
+    } catch (error) {
+      handleError(error as Error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLoadTemplate = (template: Template) => {
     setCurrentTemplate(template);
     setShowTemplateManager(false);
-    setError(null);
+    showSuccess(`Шаблон "${template.name}" загружен`);
   };
 
-
+  const availableFields = useMemo((): FieldDefinition[] => {
+    if (!excelData) return [];
+    
+    return excelData.headers.map(header => ({
+      name: header,
+      displayName: header,
+      type: 'excel' as const,
+      required: false
+    }));
+  }, [excelData]);
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <main className="container mx-auto px-4 py-8">
+      <div className="min-h-screen bg-background">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Excel to Word Template Generator
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Загружайте Excel файлы, создавайте интерактивные шаблоны и генерируйте Word документы
-          </p>
-        </div>
+        <Header
+          currentStep={currentStep}
+          onStepChange={setCurrentStep}
+          canNavigateToTemplate={!!excelData}
+          canNavigateToGenerate={!!currentTemplate && !!excelData}
+        />
 
-        {/* Progress Steps */}
-        <div className="flex justify-center mb-8">
-          <div className="flex items-center space-x-4">
-            <div className={`flex items-center space-x-2 ${currentStep === 'upload' ? 'text-blue-600' :
-              excelData ? 'text-green-600' : 'text-gray-400'
-              }`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'upload' ? 'bg-blue-600 text-white' :
-                excelData ? 'bg-green-600 text-white' : 'bg-gray-200'
-                }`}>
-                1
-              </div>
-              <span className="font-medium">Загрузка данных</span>
-            </div>
-
-            <div className="w-8 h-0.5 bg-gray-300"></div>
-
-            <div className={`flex items-center space-x-2 ${currentStep === 'template' ? 'text-blue-600' :
-              currentTemplate ? 'text-green-600' : 'text-gray-400'
-              }`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'template' ? 'bg-blue-600 text-white' :
-                currentTemplate ? 'bg-green-600 text-white' : 'bg-gray-200'
-                }`}>
-                2
-              </div>
-              <span className="font-medium">Создание шаблона</span>
-            </div>
-
-            <div className="w-8 h-0.5 bg-gray-300"></div>
-
-            <div className={`flex items-center space-x-2 ${currentStep === 'generate' ? 'text-blue-600' : 'text-gray-400'
-              }`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${currentStep === 'generate' ? 'bg-blue-600 text-white' : 'bg-gray-200'
-                }`}>
-                3
-              </div>
-              <span className="font-medium">Генерация документа</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-red-800 font-medium">Ошибка:</span>
-              <span className="text-red-700">{error}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Content Area */}
-        <div className="space-y-6">
+        <main className="container mx-auto px-4 py-6 space-y-6">
+          {/* Step 1: File Upload */}
           {currentStep === 'upload' && (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                  Шаг 1: Загрузка данных
-                </h2>
-                <p className="text-gray-600">
-                  Загрузите Excel файл с данными для создания шаблона документа
-                </p>
-              </div>
-
-              <FileUploader
-                onFileUpload={handleFileUpload}
-                onError={handleError}
-                isLoading={isLoading}
-              />
-            </div>
+            <ResponsiveStack direction="vertical" spacing="lg">
+              <ResponsiveCard
+                title="Загрузка Excel файла"
+                subtitle="Выберите Excel файл с данными для генерации документов"
+              >
+                <FileUploader
+                  onFileUpload={handleFileUpload}
+                  onError={handleFileError}
+                  isLoading={isLoading}
+                />
+                {error && (
+                  <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
+                    <p className="text-destructive text-sm">{error}</p>
+                  </div>
+                )}
+              </ResponsiveCard>
+              
+              {excelData && (
+                <ResponsiveCard
+                  title="Предварительный просмотр данных"
+                  subtitle={`${excelData.rows.length} строк из листа "${excelData.selectedSheet}"`}
+                >
+                  <DataPreview data={excelData} />
+                </ResponsiveCard>
+              )}
+            </ResponsiveStack>
           )}
 
-          {currentStep === 'template' && excelData && currentTemplate && (
+          {/* Step 2: Template Creation */}
+          {currentStep === 'template' && excelData && (
             <>
-              <div className="bg-white rounded-lg shadow-lg p-6">
-                <div className="mb-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                    Шаг 2: Просмотр данных
-                  </h2>
-                  <p className="text-gray-600">
-                    Проверьте загруженные данные перед созданием шаблона
-                  </p>
-                </div>
-
-                <DataPreview
-                  data={excelData}
-                  isLoading={false}
-                  onSheetChange={handleSheetChange}
-                />
+              {/* Mobile Action Buttons */}
+              <div className="lg:hidden mb-4">
+                <ResponsiveStack direction="horizontal" spacing="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMobileFieldPalette(true)}
+                    className="flex-1"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                    Поля
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowMobileDataPreview(true)}
+                    className="flex-1"
+                  >
+                    <Database className="w-4 h-4 mr-2" />
+                    Данные
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowTemplateManager(true)}
+                    className="flex-1"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Шаблоны
+                  </Button>
+                </ResponsiveStack>
               </div>
 
-              <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                        {currentTemplate?.name || 'Создание шаблона'}
-                      </h2>
-                      <p className="text-gray-600">
-                        Перетащите поля из панели слева на холст для создания шаблона документа
-                      </p>
-                      {currentTemplate && (
-                        <div className="flex items-center space-x-4 mt-2 text-sm text-gray-500">
-                          <span>Элементов: {currentTemplate.elements.length}</span>
-                          <span>Формат: {currentTemplate.paperFormat.name}</span>
-                          <span>Создан: {new Date(currentTemplate.createdAt).toLocaleDateString('ru-RU')}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => {
-                          const newTemplate = templateService.createTemplate(
-                            'Новый шаблон',
-                            [],
-                            PAPER_FORMATS.A4
-                          );
-                          setCurrentTemplate(newTemplate);
-                          setSelectedElement(null);
-                        }}
-                        className="px-4 py-2 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                      >
-                        Новый шаблон
-                      </button>
-                      <button
+              {/* Desktop Layout */}
+              <div className="hidden lg:block space-y-6">
+                {/* Field Palette Row */}
+                <ResponsiveCard
+                  title="Поля данных"
+                  subtitle="Перетащите поля на холст для создания шаблона"
+                  className="max-h-80"
+                >
+                  <FieldPalette 
+                    availableFields={availableFields}
+                    onAddMultipleFields={handleAddMultipleFields}
+                  />
+                </ResponsiveCard>
+
+                {/* Template Canvas Row */}
+                <ResponsiveCard
+                  title="Холст шаблона"
+                  subtitle="Создайте макет документа"
+                  actions={
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => setShowTemplateManager(true)}
-                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors"
                       >
                         Управление шаблонами
-                      </button>
-                      <div className="flex items-center space-x-2">
-                        {currentTemplate && currentTemplate.elements.length > 0 && (
-                          <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                            Несохраненные изменения
-                          </span>
-                        )}
-                        <button
-                          onClick={handleSaveTemplate}
-                          disabled={!currentTemplate || currentTemplate.elements.length === 0 || isLoading}
-                          className="px-4 py-2 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isLoading ? 'Сохранение...' : 'Сохранить как...'}
-                        </button>
-                      </div>
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveTemplate}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? 'Сохранение...' : 'Сохранить как...'}
+                      </Button>
                     </div>
-                  </div>
-                </div>
-
-                <div className="flex h-96">
-                  {/* Field palette */}
-                  <div className="w-80 border-r border-gray-200">
-                    <FieldPalette
-                      availableFields={availableFields}
-                      onAddMultipleFields={handleAddMultipleFields}
-                      className="h-full border-0 rounded-none"
-                    />
-                  </div>
-
-                  {/* Template canvas */}
-                  <div className="flex-1">
+                  }
+                  className="min-h-[700px]"
+                >
+                  {currentTemplate && (
                     <TemplateCanvas
                       paperFormat={currentTemplate.paperFormat}
                       availableFields={availableFields}
@@ -322,84 +300,159 @@ export default function Home() {
                       onElementMove={handleElementMove}
                       onElementResize={handleElementResize}
                     />
-                  </div>
-                </div>
+                  )}
+                </ResponsiveCard>
+
+                {/* Data Preview Row */}
+                <ResponsiveCard
+                  title="Предварительный просмотр данных"
+                  subtitle={`${excelData.rows.length} строк из листа "${excelData.selectedSheet}"`}
+                  className="max-h-96"
+                >
+                  <DataPreview data={excelData} />
+                </ResponsiveCard>
               </div>
+
+              {/* Mobile Layout */}
+              <div className="lg:hidden">
+                <ResponsiveCard
+                  title="Холст шаблона"
+                  subtitle="Создайте макет документа"
+                  actions={
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowTemplateManager(true)}
+                      >
+                        Шаблоны
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleSaveTemplate}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? 'Сохранение...' : 'Сохранить'}
+                      </Button>
+                    </div>
+                  }
+                  className="min-h-[500px]"
+                >
+                  {currentTemplate && (
+                    <TemplateCanvas
+                      paperFormat={currentTemplate.paperFormat}
+                      availableFields={availableFields}
+                      template={currentTemplate}
+                      selectedElement={selectedElement}
+                      onTemplateChange={handleTemplateChange}
+                      onElementSelect={handleElementSelect}
+                      onElementMove={handleElementMove}
+                      onElementResize={handleElementResize}
+                    />
+                  )}
+                </ResponsiveCard>
+              </div>
+
+              {/* Mobile Drawers */}
+              <MobileDrawer
+                isOpen={showMobileFieldPalette}
+                onClose={() => setShowMobileFieldPalette(false)}
+                title="Поля данных"
+                description="Перетащите поля на холст для создания шаблона"
+              >
+                <FieldPalette 
+                  availableFields={availableFields}
+                  onAddMultipleFields={handleAddMultipleFields}
+                />
+              </MobileDrawer>
+
+              <MobileDrawer
+                isOpen={showMobileDataPreview}
+                onClose={() => setShowMobileDataPreview(false)}
+                title="Данные"
+                description="Предварительный просмотр данных"
+              >
+                <DataPreview data={excelData} compact />
+              </MobileDrawer>
             </>
           )}
 
+          {/* Step 3: Document Generation */}
           {currentStep === 'generate' && (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">
-                  Генерация документа
-                </h3>
-                <p className="text-gray-500">
-                  Компонент генерации документа будет добавлен в следующих задачах
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Navigation */}
-        <div className="flex justify-between mt-8">
-          <button
-            onClick={() => {
-              if (currentStep === 'template') {
-                setCurrentStep('upload');
-                setError(null);
-              }
-              if (currentStep === 'generate') setCurrentStep('template');
-            }}
-            disabled={currentStep === 'upload'}
-            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Назад
-          </button>
-
-          <button
-            onClick={() => {
-              if (currentStep === 'upload' && excelData) setCurrentStep('template');
-              if (currentStep === 'template') setCurrentStep('generate');
-            }}
-            disabled={
-              (currentStep === 'upload' && !excelData) ||
-              currentStep === 'generate'
-            }
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {currentStep === 'upload' ? 'Создать шаблон' :
-              currentStep === 'template' ? 'Генерировать документ' : 'Завершено'}
-          </button>
-        </div>
-
-        {/* Template Manager Modal */}
-        {showTemplateManager && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] overflow-hidden">
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Управление шаблонами</h3>
-                <button
-                  onClick={() => setShowTemplateManager(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto max-h-[60vh]">
-                <TemplateManager
-                  currentTemplate={currentTemplate}
-                  onTemplateLoad={handleLoadTemplate}
-                  onTemplateSave={handleSaveTemplate}
+            <ResponsiveStack direction="vertical" spacing="lg">
+              <ResponsiveCard
+                title="Генерация документов"
+                subtitle="Настройте параметры и сгенерируйте Word документы на основе вашего шаблона"
+              >
+                <DocumentDownloader
+                  template={currentTemplate}
+                  excelData={excelData}
                 />
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
+              </ResponsiveCard>
+
+              {/* Template Preview */}
+              {currentTemplate && (
+                <ResponsiveCard title="Предварительный просмотр шаблона">
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Название:</span>
+                        <span className="ml-2 font-medium">{currentTemplate.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Элементов:</span>
+                        <span className="ml-2 font-medium">{currentTemplate.elements.length}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Формат:</span>
+                        <span className="ml-2 font-medium">{currentTemplate.paperFormat.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Создан:</span>
+                        <span className="ml-2 font-medium">
+                          {new Date(currentTemplate.createdAt).toLocaleDateString('ru-RU')}
+                        </span>
+                      </div>
+                    </div>
+                    {currentTemplate.elements.length > 0 && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium mb-2">Поля в шаблоне:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {currentTemplate.elements.map((element) => (
+                            <Badge key={element.id} variant="secondary">
+                              {element.fieldName}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ResponsiveCard>
+              )}
+            </ResponsiveStack>
+          )}
+
+          {/* Template Manager Modal */}
+          {showTemplateManager && (
+            <TemplateManager
+              isOpen={showTemplateManager}
+              onClose={() => setShowTemplateManager(false)}
+              onLoadTemplate={handleLoadTemplate}
+              currentTemplate={currentTemplate}
+            />
+          )}
+        </main>
+      </div>
     </DndProvider>
+  );
+}
+
+export default function Home() {
+  return (
+    <ErrorProvider>
+      <ErrorBoundary>
+        <HomeContent />
+      </ErrorBoundary>
+    </ErrorProvider>
   );
 }

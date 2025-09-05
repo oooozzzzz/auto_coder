@@ -1,8 +1,9 @@
 // Web Worker for document generation
-// Fallback JavaScript version for production builds
+// JavaScript version for Next.js production builds
 
-// Import docx library (this would need to be bundled separately in production)
-// For now, this is a simplified version
+// Note: In a real production environment, you would need to bundle
+// the docx library with the worker or use a CDN version
+// For now, this is a simplified version that creates text files
 
 // System fields mapping
 const SYSTEM_FIELDS_MAP = {

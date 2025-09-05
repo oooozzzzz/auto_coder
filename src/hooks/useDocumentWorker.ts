@@ -51,14 +51,16 @@ export function useDocumentWorker(): UseDocumentWorkerReturn {
     }
 
     try {
-      // Try to create worker from TypeScript file (in development)
-      workerRef.current = new Worker(
-        new URL('../workers/document-generator.worker.ts', import.meta.url),
-        { type: 'module' }
-      );
-    } catch (error) {
-      // Fallback to JavaScript file (in production)
+      // Check if Worker is supported
+      if (typeof Worker === 'undefined') {
+        throw new Error('Web Workers не поддерживаются в этом браузере');
+      }
+
+      // In Next.js, use the public folder for workers
       workerRef.current = new Worker('/workers/document-generator.worker.js');
+    } catch (error) {
+      console.error('Failed to create worker:', error);
+      throw new Error('Не удалось инициализировать Web Worker');
     }
 
     workerRef.current.onmessage = (e) => {

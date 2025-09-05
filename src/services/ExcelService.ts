@@ -46,7 +46,7 @@ class ExcelService implements IExcelService {
 
       return {
         ...sheetData,
-        sheetNames: workbook.SheetNames,
+        sheets: workbook.SheetNames,
         selectedSheet: targetSheetName
       };
     } catch (error) {
@@ -130,9 +130,10 @@ class ExcelService implements IExcelService {
     });
 
     return {
+      filename: '',
       headers,
       rows,
-      sheetNames: [sheetName],
+      sheets: [sheetName],
       selectedSheet: sheetName
     };
   }

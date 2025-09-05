@@ -65,8 +65,8 @@ describe('StorageService', () => {
     name: 'Test Template',
     paperFormat: PAPER_FORMATS.A4,
     elements: [],
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-01')
+    createdAt: new Date('2024-01-01').toISOString(),
+    updatedAt: new Date('2024-01-01').toISOString()
   };
 
   beforeEach(() => {

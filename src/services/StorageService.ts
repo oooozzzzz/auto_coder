@@ -27,15 +27,15 @@ class TemplateDatabase extends Dexie {
 
     // Add hooks for automatic timestamps
     this.templates.hook('creating', (primKey, obj, trans) => {
-      obj.createdAt = new Date();
-      obj.updatedAt = new Date();
+      obj.createdAt = new Date().toISOString();
+      obj.updatedAt = new Date().toISOString();
       if (!obj.id) {
         obj.id = generateId();
       }
     });
 
     this.templates.hook('updating', (modifications: any, primKey, obj, trans) => {
-      modifications.updatedAt = new Date();
+      modifications.updatedAt = new Date().toISOString();
     });
   }
 }
@@ -114,8 +114,8 @@ class StorageService implements IStorageService {
         const newTemplate = {
           ...template,
           id: template.id || generateId(),
-          createdAt: template.createdAt || new Date(),
-          updatedAt: new Date()
+          createdAt: template.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
         };
         await this.db.templates.put(newTemplate);
         savedId = newTemplate.id;
@@ -177,8 +177,8 @@ class StorageService implements IStorageService {
       const templateList: TemplateListItem[] = templates.map(template => ({
         id: template.id,
         name: template.name,
-        createdAt: template.createdAt,
-        updatedAt: template.updatedAt,
+        createdAt: new Date(template.createdAt),
+        updatedAt: new Date(template.updatedAt),
         elementCount: template.elements.length,
         paperFormat: template.paperFormat.name
       }));
@@ -308,8 +308,8 @@ class StorageService implements IStorageService {
         ...importData.template,
         id: generateId(),
         name: `${importData.template.name} (импорт)`,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
 
       const saveResult = await this.saveTemplate(template);
@@ -350,8 +350,8 @@ class StorageService implements IStorageService {
       const templateList: TemplateListItem[] = templates.map(template => ({
         id: template.id,
         name: template.name,
-        createdAt: template.createdAt,
-        updatedAt: template.updatedAt,
+        createdAt: new Date(template.createdAt),
+        updatedAt: new Date(template.updatedAt),
         elementCount: template.elements.length,
         paperFormat: template.paperFormat.name
       }));
@@ -389,7 +389,7 @@ class StorageService implements IStorageService {
         return size + JSON.stringify(template).length;
       }, 0);
 
-      const dates = templates.map(t => t.createdAt).sort();
+      const dates = templates.map(t => new Date(t.createdAt)).sort();
       const oldestTemplate = dates.length > 0 ? dates[0] : null;
       const newestTemplate = dates.length > 0 ? dates[dates.length - 1] : null;
 

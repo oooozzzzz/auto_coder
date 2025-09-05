@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { Template, ExcelData, DocumentGenerationOptions } from '@/types';
 import { useDocumentWorker } from '@/hooks/useDocumentWorker';
+import { useError } from '@/contexts/ErrorContext';
 import documentService from '@/services/DocumentService';
 
 interface DocumentDownloaderProps {
@@ -33,6 +34,8 @@ const DocumentDownloader: React.FC<DocumentDownloaderProps> = ({
 
   const [selectedRowIndex, setSelectedRowIndex] = useState(0);
   const [downloadMode, setDownloadMode] = useState<'single' | 'all'>('single');
+  const [useZipArchive, setUseZipArchive] = useState(true);
+  const { handleError, showSuccess } = useError();
 
   // Check if generation is possible
   const canGenerate = template && excelData && template.elements.length > 0;
@@ -46,41 +49,85 @@ const DocumentDownloader: React.FC<DocumentDownloaderProps> = ({
     if (!template || !excelData) return;
 
     try {
-      const blob = await generateDocument(template, excelData, {
-        ...downloadOptions,
-        rowIndex: selectedRowIndex
-      });
+      let blob: Blob;
+      
+      try {
+        // Try using Web Worker first
+        blob = await generateDocument(template, excelData, {
+          ...downloadOptions,
+          rowIndex: selectedRowIndex
+        });
+      } catch (workerError) {
+        console.warn('Web Worker failed, falling back to main thread:', workerError);
+        
+        // Fallback to DocumentService
+        blob = await documentService.generateDocument(template, excelData, {
+          ...downloadOptions,
+          rowIndex: selectedRowIndex
+        });
+      }
 
       const filename = documentService.createFilename(template, selectedRowIndex);
       documentService.downloadDocument(blob, filename);
+      
+      showSuccess(
+        'Документ сгенерирован',
+        `Файл "${filename}" готов к загрузке`
+      );
     } catch (error) {
-      console.error('Download error:', error);
-      alert('Ошибка при генерации документа: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+      handleError(
+        error instanceof Error ? error : new Error('Неизвестная ошибка'),
+        'document-generation'
+      );
     }
-  }, [template, excelData, downloadOptions, selectedRowIndex, generateDocument]);
+  }, [template, excelData, downloadOptions, selectedRowIndex, generateDocument, handleError, showSuccess]);
 
   // Handle multiple documents download
   const handleMultipleDownload = useCallback(async () => {
     if (!template || !excelData) return;
 
     try {
-      const blobs = await generateMultipleDocuments(template, excelData, downloadOptions);
-
-      // Download each document with a small delay
-      for (let i = 0; i < blobs.length; i++) {
-        const filename = documentService.createFilename(template, i);
-        documentService.downloadDocument(blobs[i], filename);
+      let blobs: Blob[];
+      
+      try {
+        // Try using Web Worker first
+        blobs = await generateMultipleDocuments(template, excelData, downloadOptions);
+      } catch (workerError) {
+        console.warn('Web Worker failed, falling back to main thread:', workerError);
         
-        // Add delay between downloads to prevent browser blocking
-        if (i < blobs.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+        // Fallback to DocumentService
+        blobs = await documentService.generateMultipleDocuments(template, excelData, downloadOptions);
+      }
+
+      if (useZipArchive) {
+        // Use ZIP download for multiple documents
+        await documentService.downloadMultipleDocuments(blobs, template, excelData);
+      } else {
+        // Download each document individually with retry
+        for (let i = 0; i < blobs.length; i++) {
+          const filename = documentService.createFilename(template, i);
+          await documentService.downloadDocumentWithRetry(blobs[i], filename);
+          
+          // Add delay between downloads to prevent browser blocking
+          if (i < blobs.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         }
       }
+      
+      const count = blobs.length;
+      const format = useZipArchive ? 'ZIP-архив' : 'отдельные файлы';
+      showSuccess(
+        'Документы сгенерированы',
+        `${count} документов готовы к загрузке (${format})`
+      );
     } catch (error) {
-      console.error('Multiple download error:', error);
-      alert('Ошибка при генерации документов: ' + (error instanceof Error ? error.message : 'Неизвестная ошибка'));
+      handleError(
+        error instanceof Error ? error : new Error('Неизвестная ошибка'),
+        'document-generation'
+      );
     }
-  }, [template, excelData, downloadOptions, generateMultipleDocuments]);
+  }, [template, excelData, downloadOptions, generateMultipleDocuments, useZipArchive, handleError, showSuccess]);
 
   // Handle download based on mode
   const handleDownload = useCallback(() => {
@@ -220,6 +267,46 @@ const DocumentDownloader: React.FC<DocumentDownloaderProps> = ({
             </label>
           </div>
         </div>
+
+        {/* Download format for multiple documents */}
+        {downloadMode === 'all' && excelData && excelData.rows.length > 1 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Формат загрузки
+            </label>
+            <div className="space-y-3">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  checked={useZipArchive}
+                  onChange={() => setUseZipArchive(true)}
+                  className="mr-3"
+                />
+                <div>
+                  <div className="font-medium">ZIP-архив</div>
+                  <div className="text-sm text-gray-600">
+                    Все документы в одном архиве (рекомендуется)
+                  </div>
+                </div>
+              </label>
+              
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  checked={!useZipArchive}
+                  onChange={() => setUseZipArchive(false)}
+                  className="mr-3"
+                />
+                <div>
+                  <div className="font-medium">Отдельные файлы</div>
+                  <div className="text-sm text-gray-600">
+                    Каждый документ загружается отдельно
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+        )}
 
         {/* Row selection for single mode */}
         {downloadMode === 'single' && excelData && (

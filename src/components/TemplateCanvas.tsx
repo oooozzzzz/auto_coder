@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useDrop } from 'react-dnd';
-import { TemplateCanvasProps, TemplateElement, FieldDefinition, PaperFormat } from '@/types';
+import { TemplateElement, PaperFormat, Template } from '@/types';
 import { PAPER_FORMATS, CANVAS_DEFAULTS } from '@/constants';
 import { generateId } from '@/utils/formatters';
 
@@ -68,11 +68,14 @@ const CanvasElement: React.FC<{
                 top: element.y * scale,
                 width: element.width * scale,
                 height: element.height * scale,
-                fontSize: element.styles.fontSize * scale,
-                fontWeight: element.styles.fontWeight,
-                textAlign: element.styles.textAlign,
-                fontFamily: element.styles.fontFamily,
-                color: element.styles.color,
+                fontSize: element.fontSize * scale,
+                fontWeight: element.bold ? 'bold' : 'normal',
+                textAlign: element.textAlign,
+                fontFamily: element.fontFamily,
+                color: element.color,
+                backgroundColor: element.backgroundColor !== 'transparent' ? element.backgroundColor : undefined,
+                fontStyle: element.italic ? 'italic' : 'normal',
+                textDecoration: element.underline ? 'underline' : 'none',
                 zIndex: isSelected ? 10 : 1
             }}
             onMouseDown={handleMouseDown}
@@ -173,7 +176,18 @@ const CanvasDropZone: React.FC<{
     );
 };
 
-// Main TemplateCanvas component
+// Main TemplateCanvas component interface
+interface TemplateCanvasProps {
+    paperFormat: PaperFormat;
+    availableFields: any[];
+    template: Template;
+    selectedElement: TemplateElement | null;
+    onTemplateChange: (template: Template) => void;
+    onElementSelect: (element: TemplateElement | null) => void;
+    onElementMove: (elementId: string, x: number, y: number) => void;
+    onElementResize: (elementId: string, width: number, height: number) => void;
+}
+
 const TemplateCanvas: React.FC<TemplateCanvasProps> = ({
     paperFormat,
     availableFields,
@@ -194,10 +208,21 @@ const TemplateCanvas: React.FC<TemplateCanvasProps> = ({
         const newElement: TemplateElement = {
             id: generateId(),
             fieldName,
+            type: 'text',
             x: Math.max(0, x),
             y: Math.max(0, y),
             width: 100,
             height: 30,
+            fontSize: 12,
+            fontFamily: 'Arial',
+            color: '#000000',
+            backgroundColor: 'transparent',
+            borderWidth: 1,
+            borderColor: '#cccccc',
+            textAlign: 'left',
+            bold: false,
+            italic: false,
+            underline: false,
             styles: {
                 fontSize: 12,
                 fontWeight: 'normal',
@@ -252,10 +277,10 @@ const TemplateCanvas: React.FC<TemplateCanvasProps> = ({
     }, []);
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full min-h-[600px]">
             {/* Toolbar */}
-            <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200">
-                <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-gray-50 border-b border-gray-200 space-y-2 sm:space-y-0">
+                <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                     <h3 className="text-lg font-semibold text-gray-900">
                         Редактор шаблона
                     </h3>
@@ -282,7 +307,7 @@ const TemplateCanvas: React.FC<TemplateCanvasProps> = ({
                     </select>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-2">
                     {/* Grid toggle */}
                     <button
                         onClick={() => setShowGrid(!showGrid)}
@@ -325,8 +350,8 @@ const TemplateCanvas: React.FC<TemplateCanvasProps> = ({
             </div>
 
             {/* Canvas area */}
-            <div className="flex-1 overflow-auto p-4 bg-gray-100">
-                <div className="inline-block">
+            <div className="flex-1 overflow-auto p-4 bg-gray-100 min-h-[500px]">
+                <div className="flex justify-center">
                     <CanvasDropZone
                         paperFormat={paperFormat}
                         scale={scale}
