@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { ExcelData, Template, TemplateElement, FieldDefinition } from '@/types';
+import { useState, useMemo } from "react";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { ExcelData, Template, TemplateElement, FieldDefinition } from "@/types";
 import {
   FileUploader,
   DataPreview,
@@ -15,28 +15,32 @@ import {
   Header,
   MobileDrawer,
   ResponsiveCard,
-  ResponsiveStack
-} from '@/components';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { FileSpreadsheet, Database, Settings } from 'lucide-react';
-import { PAPER_FORMATS } from '@/constants';
-import templateService from '@/services/TemplateService';
-import { generateId } from '@/utils/formatters';
-import { ErrorProvider, useError } from '@/contexts/ErrorContext';
+  ResponsiveStack,
+} from "@/components";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { FileSpreadsheet, Database, Settings } from "lucide-react";
+import { PAPER_FORMATS } from "@/constants";
+import templateService from "@/services/TemplateService";
+import { generateId } from "@/utils/formatters";
+import { ErrorProvider, useError } from "@/contexts/ErrorContext";
+import TemplateSaveDialog from "@/components/TemplateSaveDialog";
 
-type Step = 'upload' | 'template' | 'generate';
+type Step = "upload" | "template" | "generate";
 
 function HomeContent() {
-  const [currentStep, setCurrentStep] = useState<Step>('upload');
+  const [currentStep, setCurrentStep] = useState<Step>("upload");
   const [excelData, setExcelData] = useState<ExcelData | null>(null);
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null);
-  const [selectedElement, setSelectedElement] = useState<TemplateElement | null>(null);
+  const [selectedElement, setSelectedElement] =
+    useState<TemplateElement | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [showMobileFieldPalette, setShowMobileFieldPalette] = useState(false);
   const [showMobileDataPreview, setShowMobileDataPreview] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [templateToSave, setTemplateToSave] = useState<Template | null>(null); // Добавляем состояние для сохраняемого шаблона
 
   const { handleError, showSuccess } = useError();
 
@@ -47,24 +51,22 @@ function HomeContent() {
     // Create default template
     const defaultTemplate: Template = {
       id: generateId(),
-      name: `Шаблон для ${data.filename || 'файла'}`,
+      name: `Шаблон для ${data.filename || "файла"}`,
       elements: [],
       paperFormat: PAPER_FORMATS.A4,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
     setCurrentTemplate(defaultTemplate);
-    setCurrentStep('template');
-    showSuccess('Файл успешно загружен');
+    setCurrentStep("template");
+    showSuccess("Файл успешно загружен");
   };
 
   const handleFileError = (errorMessage: string) => {
     setError(errorMessage);
     handleError(new Error(errorMessage));
   };
-
-
 
   const handleTemplateChange = (template: Template) => {
     setCurrentTemplate(template);
@@ -77,28 +79,32 @@ function HomeContent() {
   const handleElementMove = (elementId: string, x: number, y: number) => {
     if (!currentTemplate) return;
 
-    const updatedElements = currentTemplate.elements.map(el =>
+    const updatedElements = currentTemplate.elements.map((el) =>
       el.id === elementId ? { ...el, x, y } : el
     );
 
     setCurrentTemplate({
       ...currentTemplate,
       elements: updatedElements,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     });
   };
 
-  const handleElementResize = (elementId: string, width: number, height: number) => {
+  const handleElementResize = (
+    elementId: string,
+    width: number,
+    height: number
+  ) => {
     if (!currentTemplate) return;
 
-    const updatedElements = currentTemplate.elements.map(el =>
+    const updatedElements = currentTemplate.elements.map((el) =>
       el.id === elementId ? { ...el, width, height } : el
     );
 
     setCurrentTemplate({
       ...currentTemplate,
       elements: updatedElements,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     });
   };
 
@@ -109,65 +115,87 @@ function HomeContent() {
       id: generateId(),
       fieldName: field.name,
       displayName: field.displayName || field.name,
-      type: 'text',
-      x: 50 + (index * 20),
-      y: 50 + (index * 30),
+      type: "text",
+      x: 50 + index * 20,
+      y: 50 + index * 30,
       width: 200,
       height: 30,
       fontSize: 12,
-      fontFamily: 'Arial',
-      color: '#000000',
-      backgroundColor: 'transparent',
+      fontFamily: "Arial",
+      color: "#000000",
+      backgroundColor: "transparent",
       borderWidth: 0,
-      borderColor: '#000000',
-      textAlign: 'left' as const,
+      borderColor: "#000000",
+      textAlign: "left" as const,
       bold: false,
       italic: false,
       underline: false,
       styles: {
         fontSize: 12,
-        fontWeight: 'normal' as const,
-        textAlign: 'left' as const,
-        fontFamily: 'Arial',
-        color: '#000000'
-      }
+        fontWeight: "normal" as const,
+        textAlign: "left" as const,
+        fontFamily: "Arial",
+        color: "#000000",
+      },
     }));
 
     setCurrentTemplate({
       ...currentTemplate,
       elements: [...currentTemplate.elements, ...newElements],
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     });
   };
 
-  const handleSaveTemplate = async () => {
-    if (!currentTemplate) return;
+  const handleSaveTemplate = () => {
+  if (!currentTemplate) return;
 
-    try {
-      setIsLoading(true);
-      await templateService.saveTemplate(currentTemplate);
-      showSuccess('Шаблон успешно сохранен');
-    } catch (error) {
-      handleError(error as Error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Всегда используем текущий шаблон для сохранения
+  setTemplateToSave(currentTemplate);
+  setIsSaveDialogOpen(true);
+};
 
-  const handleLoadTemplate = (template: Template) => {
-    setCurrentTemplate(template);
-    setShowTemplateManager(false);
-    showSuccess(`Шаблон "${template.name}" загружен`);
-  };
+  const handleConfirmSave = async (name: string) => {
+  if (!templateToSave) return;
+
+  try {
+    setIsLoading(true);
+
+    // Создаем новый шаблон с новым ID и именем
+    const newTemplate = {
+      ...templateToSave,
+      id: generateId(), // Генерируем новый ID
+      name: name.trim(),
+      createdAt: new Date().toISOString(), // Обновляем дату создания
+      updatedAt: new Date().toISOString(),
+    };
+
+    await templateService.saveTemplate(newTemplate);
+    showSuccess("Шаблон успешно сохранен");
+    setIsSaveDialogOpen(false);
+
+    // Обновляем текущий шаблон на новый
+    setCurrentTemplate(newTemplate);
+  } catch (error) {
+    handleError(error as Error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+const handleLoadTemplate = (template: Template) => {
+  setCurrentTemplate(template);
+  setShowTemplateManager(false);
+  showSuccess(`Шаблон "${template.name}" загружен`);
+};
 
   const availableFields = useMemo((): FieldDefinition[] => {
     if (!excelData) return [];
 
-    return excelData.headers.map(header => ({
+    return excelData.headers.map((header) => ({
       name: header,
       displayName: header,
-      type: 'excel' as const,
-      required: false
+      type: "excel" as const,
+      required: false,
     }));
   }, [excelData]);
 
@@ -184,7 +212,7 @@ function HomeContent() {
 
         <main className="container mx-auto px-4 py-6 space-y-6">
           {/* Step 1: File Upload */}
-          {currentStep === 'upload' && (
+          {currentStep === "upload" && (
             <ResponsiveStack direction="vertical" spacing="lg">
               <ResponsiveCard
                 title="Загрузка Excel файла"
@@ -214,7 +242,7 @@ function HomeContent() {
           )}
 
           {/* Step 2: Template Creation */}
-          {currentStep === 'template' && excelData && (
+          {currentStep === "template" && excelData && (
             <>
               {/* Mobile Action Buttons */}
               <div className="lg:hidden mb-4">
@@ -257,7 +285,9 @@ function HomeContent() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                       <div className="mb-2 sm:mb-0">
                         <h3 className="text-lg font-semibold">Поля данных</h3>
-                        <p className="text-sm text-gray-600 mt-1">Перетащите поля на холст для создания шаблона</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Перетащите поля на холст для создания шаблона
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -287,7 +317,7 @@ function HomeContent() {
                         onClick={handleSaveTemplate}
                         disabled={isLoading}
                       >
-                        {isLoading ? 'Сохранение...' : 'Сохранить как...'}
+                        {isLoading ? "Сохранение..." : "Сохранить как..."}
                       </Button>
                     </div>
                   }
@@ -312,8 +342,13 @@ function HomeContent() {
                   <div className="p-4 border-b border-gray-200">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                       <div className="mb-2 sm:mb-0">
-                        <h3 className="text-lg font-semibold">Предварительный просмотр данных</h3>
-                        <p className="text-sm text-gray-600 mt-1">{excelData.rows.length} строк из листа &quot;{excelData.selectedSheet}&quot;</p>
+                        <h3 className="text-lg font-semibold">
+                          Предварительный просмотр данных
+                        </h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          {excelData.rows.length} строк из листа &quot;
+                          {excelData.selectedSheet}&quot;
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -342,7 +377,7 @@ function HomeContent() {
                         onClick={handleSaveTemplate}
                         disabled={isLoading}
                       >
-                        {isLoading ? 'Сохранение...' : 'Сохранить'}
+                        {isLoading ? "Сохранение..." : "Сохранить"}
                       </Button>
                     </div>
                   }
@@ -388,7 +423,7 @@ function HomeContent() {
           )}
 
           {/* Step 3: Document Generation */}
-          {currentStep === 'generate' && (
+          {currentStep === "generate" && (
             <ResponsiveStack direction="vertical" spacing="lg">
               <ResponsiveCard
                 title="Генерация документов"
@@ -407,26 +442,38 @@ function HomeContent() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-muted-foreground">Название:</span>
-                        <span className="ml-2 font-medium">{currentTemplate.name}</span>
+                        <span className="ml-2 font-medium">
+                          {currentTemplate.name}
+                        </span>
                       </div>
                       <div>
-                        <span className="text-muted-foreground">Элементов:</span>
-                        <span className="ml-2 font-medium">{currentTemplate.elements.length}</span>
+                        <span className="text-muted-foreground">
+                          Элементов:
+                        </span>
+                        <span className="ml-2 font-medium">
+                          {currentTemplate.elements.length}
+                        </span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Формат:</span>
-                        <span className="ml-2 font-medium">{currentTemplate.paperFormat.name}</span>
+                        <span className="ml-2 font-medium">
+                          {currentTemplate.paperFormat.name}
+                        </span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Создан:</span>
                         <span className="ml-2 font-medium">
-                          {new Date(currentTemplate.createdAt).toLocaleDateString('ru-RU')}
+                          {new Date(
+                            currentTemplate.createdAt
+                          ).toLocaleDateString("ru-RU")}
                         </span>
                       </div>
                     </div>
                     {currentTemplate.elements.length > 0 && (
                       <div className="mt-4">
-                        <h4 className="text-sm font-medium mb-2">Поля в шаблоне:</h4>
+                        <h4 className="text-sm font-medium mb-2">
+                          Поля в шаблоне:
+                        </h4>
                         <div className="flex flex-wrap gap-2">
                           {currentTemplate.elements.map((element) => (
                             <Badge key={element.id} variant="secondary">
@@ -451,6 +498,16 @@ function HomeContent() {
               currentTemplate={currentTemplate}
             />
           )}
+
+          <TemplateSaveDialog
+            handleError={handleError}
+            showSuccess={showSuccess}
+            open={isSaveDialogOpen}
+            onOpenChange={setIsSaveDialogOpen}
+            templateName={templateToSave?.name || ""}
+            onSave={handleConfirmSave}
+            isLoading={isLoading}
+          />
         </main>
       </div>
     </DndProvider>

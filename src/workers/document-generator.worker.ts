@@ -1,6 +1,12 @@
 /// <reference lib="webworker" />
 
 import { Document, Paragraph, TextRun, AlignmentType, Packer } from 'docx';
+import { Buffer } from 'buffer';
+
+// Полифиллы для браузерной среды
+if (typeof self !== 'undefined') {
+  (self as any).Buffer = Buffer;
+}
 
 // Types for worker messages
 interface WorkerMessage {
@@ -10,9 +16,9 @@ interface WorkerMessage {
 }
 
 interface GenerateDocumentData {
-  template: any; // Template object
-  excelData: any; // ExcelData object
-  options: any; // DocumentGenerationOptions
+  template: any;
+  excelData: any;
+  options: any;
   rowIndex?: number;
 }
 
@@ -34,10 +40,10 @@ const SYSTEM_FIELDS_MAP: Record<string, () => string> = {
 };
 
 /**
- * Convert pixels to twips (1/20th of a point)
+ * Convert pixels to points (1/72th of an inch)
  */
-function convertPixelsToTwips(pixels: number): number {
-  return Math.round(pixels * 0.75 * 20);
+function convertPixelsToPoints(pixels: number): number {
+  return Math.round(pixels * 0.75);
 }
 
 /**
@@ -48,14 +54,12 @@ function getFieldValue(
   dataRow: Record<string, any>,
   headers: string[]
 ): string {
-  // Handle system fields
   if (fieldName.startsWith('{{') && fieldName.endsWith('}}')) {
     const systemFieldName = fieldName.slice(2, -2);
     const systemFieldFn = SYSTEM_FIELDS_MAP[systemFieldName];
     return systemFieldFn ? systemFieldFn() : `[${systemFieldName}]`;
   }
 
-  // Handle Excel fields
   if (headers.includes(fieldName)) {
     const value = dataRow[fieldName];
     
@@ -63,7 +67,6 @@ function getFieldValue(
       return '[пусто]';
     }
     
-    // Format different data types
     if (typeof value === 'number') {
       return value.toLocaleString('ru-RU');
     }
@@ -75,7 +78,6 @@ function getFieldValue(
     return String(value);
   }
 
-  // Field not found
   return `[${fieldName}]`;
 }
 
@@ -90,10 +92,10 @@ function createDocumentElements(
 ): Paragraph[] {
   const paragraphs: Paragraph[] = [];
 
-  // Sort elements by Y position (top to bottom)
+  // Sort elements by Y position
   const sortedElements = [...template.elements].sort((a: any, b: any) => a.y - b.y);
 
-  // Group elements by approximate Y position (within 10 pixels)
+  // Group elements by approximate Y position
   const elementGroups: any[][] = [];
   let currentGroup: any[] = [];
   let lastY = -1;
@@ -117,40 +119,36 @@ function createDocumentElements(
 
   // Create paragraphs for each group
   for (const group of elementGroups) {
-    // Sort elements in group by X position (left to right)
     const sortedGroup = group.sort((a: any, b: any) => a.x - b.x);
-    
     const textRuns: TextRun[] = [];
     
     for (let i = 0; i < sortedGroup.length; i++) {
       const element = sortedGroup[i];
       const value = getFieldValue(element.fieldName, dataRow, headers);
       
-      // Add spacing between elements if needed
       if (i > 0) {
         const prevElement = sortedGroup[i - 1];
         const spacing = element.x - (prevElement.x + prevElement.width);
-        if (spacing > 20) { // Add space if elements are far apart
+        if (spacing > 20) {
           textRuns.push(new TextRun({ text: '  ' }));
         }
       }
       
       textRuns.push(new TextRun({
         text: value,
-        font: element.styles.fontFamily,
-        size: element.styles.fontSize * 2, // Convert to half-points
-        bold: element.styles.fontWeight === 'bold',
-        color: element.styles.color?.replace('#', '') || '000000'
+        font: element.styles?.fontFamily || 'Arial',
+        size: convertPixelsToPoints(element.styles?.fontSize || 12) * 2,
+        bold: element.styles?.fontWeight === 'bold',
+        color: element.styles?.color?.replace('#', '') || '000000'
       }));
     }
 
-    // Determine paragraph alignment based on first element
     const firstElement = sortedGroup[0];
     let alignment;
     
-    if (firstElement.styles.textAlign === 'center') {
+    if (firstElement.styles?.textAlign === 'center') {
       alignment = AlignmentType.CENTER;
-    } else if (firstElement.styles.textAlign === 'right') {
+    } else if (firstElement.styles?.textAlign === 'right') {
       alignment = AlignmentType.RIGHT;
     } else {
       alignment = AlignmentType.LEFT;
@@ -160,12 +158,11 @@ function createDocumentElements(
       children: textRuns,
       alignment,
       spacing: {
-        after: 120 // Small spacing after paragraph
+        after: 200
       }
     }));
   }
 
-  // Add headers table if requested
   if (includeHeaders && headers.length > 0) {
     paragraphs.unshift(
       new Paragraph({
@@ -174,7 +171,7 @@ function createDocumentElements(
           size: 20,
           italics: true
         })],
-        spacing: { after: 240 }
+        spacing: { after: 400 }
       })
     );
   }
@@ -191,24 +188,24 @@ async function generateDocument(data: GenerateDocumentData): Promise<Blob> {
   const {
     includeHeaders = false,
     pageOrientation = 'portrait',
-    margins = { top: 720, right: 720, bottom: 720, left: 720 }
+    margins = { top: 1440, right: 1440, bottom: 1440, left: 1440 } // 1 inch margins
   } = options;
 
-  // Get data row
   const dataRow = excelData.rows[rowIndex];
   if (!dataRow && rowIndex > 0) {
     throw new Error(`Строка с индексом ${rowIndex} не найдена`);
   }
 
-  // Create document
   const doc = new Document({
     sections: [{
       properties: {
         page: {
-          size: {
-            orientation: pageOrientation,
-            width: convertPixelsToTwips(template.paperFormat.width),
-            height: convertPixelsToTwips(template.paperFormat.height)
+          size: pageOrientation === 'landscape' ? {
+            width: 15840, // 11 inches
+            height: 12240 // 8.5 inches
+          } : {
+            width: 12240, // 8.5 inches
+            height: 15840 // 11 inches
           },
           margin: margins
         }
@@ -217,11 +214,15 @@ async function generateDocument(data: GenerateDocumentData): Promise<Blob> {
     }]
   });
 
-  // Generate blob
-  const buffer = await Packer.toBuffer(doc);
-  return new Blob([new Uint8Array(buffer)], { 
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-  });
+  try {
+    const buffer = await Packer.toBuffer(doc);
+    return new Blob([buffer], { 
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
+    });
+  } catch (error) {
+    console.error('Error creating blob:', error);
+    throw new Error('Не удалось создать документ');
+  }
 }
 
 /**
@@ -234,7 +235,6 @@ async function generateMultipleDocuments(data: GenerateDocumentData): Promise<Bl
   
   for (let i = 0; i < totalRows; i++) {
     try {
-      // Send progress update
       self.postMessage({
         type: 'PROGRESS',
         data: {
@@ -251,117 +251,86 @@ async function generateMultipleDocuments(data: GenerateDocumentData): Promise<Bl
       
       documents.push(doc);
       
-      // Small delay to prevent blocking
-      if (i % 10 === 0) {
-        await new Promise(resolve => setTimeout(resolve, 1));
+      if (i % 5 === 0) {
+        await new Promise(resolve => setTimeout(resolve, 50));
       }
       
     } catch (error) {
       console.error(`Error generating document for row ${i}:`, error);
-      // Continue with other rows
     }
   }
 
   return documents;
 }
 
-/**
- * Send progress update
- */
-function sendProgress(data: ProgressData) {
-  self.postMessage({
-    type: 'PROGRESS',
-    data
-  });
-}
-
-/**
- * Send error message
- */
-function sendError(message: string, id?: string) {
-  self.postMessage({
-    type: 'ERROR',
-    data: { message },
-    id
-  });
-}
-
-/**
- * Send success message
- */
-function sendSuccess(data: any, id?: string) {
-  self.postMessage({
-    type: 'SUCCESS',
-    data,
-    id
-  });
-}
-
-// Main message handler
+// Message handlers
 self.onmessage = async function(e: MessageEvent<WorkerMessage>) {
   const { type, data, id } = e.data;
   
   try {
     switch (type) {
       case 'GENERATE_SINGLE_DOCUMENT':
-        sendProgress({ current: 0, total: 1, message: 'Начинаем генерацию документа...' });
+        self.postMessage({
+          type: 'PROGRESS',
+          data: { current: 0, total: 1, message: 'Начинаем генерацию документа...' }
+        });
         
         const singleDoc = await generateDocument(data);
         
-        sendProgress({ current: 1, total: 1, message: 'Документ готов!' });
-        sendSuccess({ blob: singleDoc }, id);
+        self.postMessage({
+          type: 'PROGRESS',
+          data: { current: 1, total: 1, message: 'Документ готов!' }
+        });
+        
+        self.postMessage({
+          type: 'SUCCESS',
+          data: { blob: singleDoc },
+          id
+        });
         break;
         
       case 'GENERATE_MULTIPLE_DOCUMENTS':
-        sendProgress({ current: 0, total: data.excelData.rows.length, message: 'Начинаем генерацию документов...' });
+        self.postMessage({
+          type: 'PROGRESS',
+          data: { 
+            current: 0, 
+            total: data.excelData.rows.length, 
+            message: 'Начинаем генерацию документов...' 
+          }
+        });
         
         const multipleDocs = await generateMultipleDocuments(data);
         
-        sendProgress({ 
-          current: data.excelData.rows.length, 
-          total: data.excelData.rows.length, 
-          message: 'Все документы готовы!' 
+        self.postMessage({
+          type: 'SUCCESS',
+          data: { blobs: multipleDocs },
+          id
         });
-        sendSuccess({ blobs: multipleDocs }, id);
-        break;
-        
-      case 'VALIDATE_TEMPLATE':
-        // Simple validation
-        const isValid = data.template && 
-                        data.template.elements && 
-                        data.template.elements.length > 0;
-        
-        sendSuccess({ 
-          isValid, 
-          error: isValid ? null : 'Шаблон не содержит элементов' 
-        }, id);
-        break;
-        
-      case 'CANCEL':
-        // For now, just acknowledge cancellation
-        sendSuccess({ cancelled: true }, id);
         break;
         
       default:
-        sendError(`Неизвестный тип сообщения: ${type}`, id);
+        self.postMessage({
+          type: 'ERROR',
+          data: { message: `Неизвестный тип сообщения: ${type}` },
+          id
+        });
     }
   } catch (error) {
-    console.error('Worker error:', error);
-    sendError(
-      error instanceof Error ? error.message : 'Неизвестная ошибка',
+    self.postMessage({
+      type: 'ERROR',
+      data: { 
+        message: error instanceof Error ? error.message : 'Неизвестная ошибка' 
+      },
       id
-    );
+    });
   }
 };
 
-// Handle worker errors
 self.onerror = function(error) {
-  console.error('Worker global error:', error);
   self.postMessage({
     type: 'ERROR',
     data: { message: 'Критическая ошибка в воркере' }
   });
 };
 
-// Export for TypeScript
 export {};

@@ -47,7 +47,7 @@ const Header: React.FC<HeaderProps> = ({
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center">
         {/* Logo and Title */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center ml-20 space-x-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <FileSpreadsheet className="h-5 w-5 text-primary-foreground" />
           </div>

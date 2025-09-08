@@ -118,7 +118,8 @@ export const CANVAS_DEFAULTS = {
   DEFAULT_ZOOM: 1.0,
   SELECTION_COLOR: '#007bff',
   GRID_COLOR: '#e0e0e0',
-  BACKGROUND_COLOR: '#ffffff'
+  BACKGROUND_COLOR: '#ffffff',
+  DEFAULT_FONT_SIZE: 12
 };
 
 // Element style presets

@@ -18,7 +18,7 @@ const CanvasElement: React.FC<{
     const [isDragging, setIsDragging] = useState(false);
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const elementRef = useRef<HTMLDivElement>(null);
-
+    const safeFontSize = (element.fontSize || CANVAS_DEFAULTS.DEFAULT_FONT_SIZE) * scale;
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -68,7 +68,7 @@ const CanvasElement: React.FC<{
                 top: element.y * scale,
                 width: element.width * scale,
                 height: element.height * scale,
-                fontSize: element.fontSize * scale,
+                fontSize: element.fontSize * scale || CANVAS_DEFAULTS.DEFAULT_FONT_SIZE * scale,
                 fontWeight: element.bold ? 'bold' : 'normal',
                 textAlign: element.textAlign,
                 fontFamily: element.fontFamily,

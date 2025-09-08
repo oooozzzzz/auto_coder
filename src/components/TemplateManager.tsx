@@ -57,6 +57,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
     try {
       setIsLoading(true);
       const result = await storageService.listTemplates();
+      console.log(result.data)
       if (result.success && result.data) {
         // Convert TemplateListItem[] to Template[] by loading each template
         const templatePromises = result.data.map(item => storageService.loadTemplate(item.id));
@@ -140,7 +141,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                     key={template.id}
                     className={`cursor-pointer transition-all ${
                       selectedTemplate?.id === template.id 
-                        ? 'ring-2 ring-primary' 
+                        ? 'shadow-lg border border-primary/50' 
                         : 'hover:shadow-md'
                     }`}
                     onClick={() => setSelectedTemplate(template)}

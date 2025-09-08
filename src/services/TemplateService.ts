@@ -1,6 +1,7 @@
 import { Template, TemplateElement, PaperFormat, ITemplateService, ElementStyles } from '@/types';
 import { PAPER_FORMATS, DEFAULT_ELEMENT_STYLES } from '@/constants';
 import { generateId } from '@/utils/formatters';
+import storageService from './StorageService';
 
 /**
  * Service for template operations
@@ -349,13 +350,15 @@ class TemplateService implements ITemplateService {
     }
 
     // Here you would integrate with StorageService
-    // For now, just simulate async operation
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('Template saved:', template.name);
-        resolve();
-      }, 100);
-    });
+    // For now, just simulate async operationg
+     // Use StorageService to save the template
+    const result = await storageService.saveTemplate(template);
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Неизвестная ошибка при сохранении');
+    }
+
+    console.log('Template saved successfully:', template.name);
   }
 }
 
