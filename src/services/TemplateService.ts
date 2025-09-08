@@ -349,8 +349,6 @@ class TemplateService implements ITemplateService {
       throw new Error(`Ошибка валидации шаблона: ${validation.error}`);
     }
 
-    // Here you would integrate with StorageService
-    // For now, just simulate async operationg
      // Use StorageService to save the template
     const result = await storageService.saveTemplate(template);
     

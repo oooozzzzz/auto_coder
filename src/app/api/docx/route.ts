@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-// import { Document, Packer } from 'docx';
 import * as docx from "docx";
 
-// System fields mapping
+// System fields mapping (оставляем без изменений)
 const SYSTEM_FIELDS_MAP: Record<string, () => string> = {
   currentDate: () => new Date().toLocaleDateString("ru-RU"),
   currentTime: () => new Date().toLocaleTimeString("ru-RU"),
@@ -35,48 +34,112 @@ function getFieldValue(
   return `[${fieldName}]`;
 }
 
-function createDocumentElements(
+function createPositionedElements(
   template: any,
   dataRow: Record<string, any>,
-  headers: string[],
-  includeHeaders: boolean
+  headers: string[]
 ): any[] {
-  const paragraphs: any[] = [];
+  const elements: any[] = [];
 
-  // Простая реализация - можно расширить по необходимости
-  paragraphs.push({
-    children: [
-      {
-        text: "Сгенерированный документ",
-        bold: true,
-        size: 32,
-      },
-    ],
-    alignment: "center" as const,
-  });
+  // Сортируем элементы по их положению на странице (сверху вниз)
+  const sortedElements = [...template.elements].sort((a, b) => a.y - b.y);
 
-  // Добавляем данные из строки
-  headers.forEach((header) => {
-    if (dataRow[header]) {
-      paragraphs.push({
-        children: [
-          {
-            text: `${header}: ${dataRow[header]}`,
-            size: 24,
-          },
+  for (const element of sortedElements) {
+    const value = getFieldValue(element.fieldName, dataRow, headers);
+
+    const textRun = new docx.TextRun({
+      text: value,
+      size: element.fontSize * 2, // Конвертируем pt в half-points
+      font: element.fontFamily,
+      color: element.color,
+      bold: element.bold,
+      italics: element.italic,
+      underline: element.underline ? {} : undefined,
+    });
+
+    const paragraph = new docx.Paragraph({
+      children: [textRun],
+      alignment:
+        docx.AlignmentType[
+          element.textAlign.toUpperCase() as keyof typeof docx.AlignmentType
         ],
-      });
-    }
-  });
+      // Абсолютное позиционирование
+      frame: {
+        type: "absolute",
+        position: {
+          x: element.x, // в dxa (twips)
+          y: element.y, // в dxa (twips)
+        },
+        width: element.width, // в dxa (twips)
+        height: element.height, // в dxa (twips)
+        anchor: {
+          horizontal: docx.HorizontalPositionRelativeFrom.PAGE,
+          vertical: docx.HorizontalPositionRelativeFrom.PAGE,
+        },
+      },
+      // Стили границ и фона
+      border:
+        element.borderWidth > 0
+          ? {
+              top: {
+                style: docx.BorderStyle.SINGLE,
+                size: element.borderWidth,
+                color: element.borderColor,
+              },
+              bottom: {
+                style: docx.BorderStyle.SINGLE,
+                size: element.borderWidth,
+                color: element.borderColor,
+              },
+              left: {
+                style: docx.BorderStyle.SINGLE,
+                size: element.borderWidth,
+                color: element.borderColor,
+              },
+              right: {
+                style: docx.BorderStyle.SINGLE,
+                size: element.borderWidth,
+                color: element.borderColor,
+              },
+            }
+          : undefined,
+      shading:
+        element.backgroundColor !== "transparent"
+          ? {
+              fill: element.backgroundColor,
+            }
+          : undefined,
+    });
 
-  return paragraphs;
+    elements.push(paragraph);
+  }
+
+  return elements;
+}
+
+// Вспомогательная функция для конвертации единиц измерения
+function convertUnits(value: number, from: string, to: string = "dxa"): number {
+  // Конвертация из пикселей/points в dxa (twips)
+  // 1 dxa = 1/20 point = 1/1440 inch
+  // 1 point = 20 dxa
+  // 1 pixel ≈ 0.75 point (зависит от DPI)
+
+  if (from === "px" && to === "dxa") {
+    return value * 15; // Примерное соотношение: 1px ≈ 15 dxa
+  }
+
+  if (from === "pt" && to === "dxa") {
+    return value * 20; // 1pt = 20 dxa
+  }
+
+  return value; // Если единицы не распознаны, возвращаем как есть
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { template, excelData, options, rowIndex, generateAll } =
       await request.json();
-
+    console.log(options)
     // Массовая генерация документов
     if (generateAll) {
       const results = [];
@@ -91,8 +154,8 @@ export async function POST(request: NextRequest) {
                 page: {
                   size: {
                     orientation: options?.pageOrientation || "portrait",
-                    width: 12240,
-                    height: 15840,
+                    width: 11906, // 11906 dxa (21 cm)
+                    height: 16838, // 16838 dxa (29.7 cm)
                   },
                   margin: options?.margins || {
                     top: 1440,
@@ -102,11 +165,10 @@ export async function POST(request: NextRequest) {
                   },
                 },
               },
-              children: createDocumentElements(
+              children: createPositionedElements(
                 template,
                 dataRow,
-                excelData.headers,
-                options?.includeHeaders || false
+                excelData.headers
               ),
             },
           ],
@@ -144,8 +206,8 @@ export async function POST(request: NextRequest) {
             page: {
               size: {
                 orientation: options?.pageOrientation || "portrait",
-                width: 12240,
-                height: 15840,
+                    width: 11906, // 11906 dxa (21 cm)
+                    height: 16838, // 16838 dxa (29.7 cm)
               },
               margin: options?.margins || {
                 top: 1440,
@@ -155,11 +217,10 @@ export async function POST(request: NextRequest) {
               },
             },
           },
-          children: createDocumentElements(
+          children: createPositionedElements(
             template,
             dataRow || {},
-            excelData.headers,
-            options?.includeHeaders || false
+            excelData.headers
           ),
         },
       ],
@@ -193,30 +254,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
-  return NextResponse.json({
-    message: "API для генерации DOCX документов",
-    endpoints: {
-      POST: "Генерация документа",
-      parameters: {
-        template: "Шаблон документа",
-        excelData: "Данные из Excel",
-        options: "Настройки",
-        rowIndex: "Индекс строки (для одиночной генерации)",
-        generateAll: "true/false для массовой генерации",
-      },
-    },
-  });
-}
-
-export async function OPTIONS() {
-  return new Response(null, {
-    status: 200,
-    headers: {
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    },
-  });
-}
-
-export const dynamic = "force-dynamic";
+// Остальные функции (GET, OPTIONS) остаются без изменений

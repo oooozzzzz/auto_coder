@@ -43,7 +43,7 @@ function HomeContent() {
   const [templateToSave, setTemplateToSave] = useState<Template | null>(null); // Добавляем состояние для сохраняемого шаблона
 
   const { handleError, showSuccess } = useError();
-
+  console.log('hello')
   const handleFileUpload = (data: ExcelData) => {
     setExcelData(data);
     setError(null);

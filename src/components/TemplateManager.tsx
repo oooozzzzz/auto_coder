@@ -66,6 +66,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
           .filter(result => result.success && result.data)
           .map(result => result.data!);
         setTemplates(loadedTemplates);
+        console.log(loadedTemplates)
       } else {
         throw new Error(result.error || 'Не удалось загрузить шаблоны');
       }
