@@ -146,20 +146,7 @@ const Header: React.FC<HeaderProps> = ({
           >
             <RefreshCw className="h-4 w-4" />
           </Button>
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              const link = document.createElement('a');
-              link.href = 'https://github.com/your-repo/excel-word-generator';
-              link.target = '_blank';
-              link.click();
-            }}
-            title="GitHub"
-          >
-            <Github className="h-4 w-4" />
-          </Button>
+
         </div>
       </div>
 

@@ -37,6 +37,7 @@ export interface TemplateElement {
   italic: boolean;
   underline: boolean;
   styles?: ElementStyles;
+  placeholder?: string; 
 }
 
 export interface ElementStyles {
@@ -388,3 +389,4 @@ export * from './document';
 export * from './context';
 export * from './forms';
 export * from './api';
+// export * from './docx-template';

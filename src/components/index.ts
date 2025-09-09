@@ -5,7 +5,7 @@ export { default as DataPreview } from './DataPreview';
 export { default as TemplateCanvas } from './TemplateCanvas';
 export { default as FieldPalette } from './FieldPalette';
 export { default as TemplateManager } from './TemplateManager';
-export { default as DocumentDownloader } from './DocumentDownloader';
+// export { default as DocumentDownloader } from './DocumentDownloader';
 export { default as PropertiesPanel } from './PropertiesPanel';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as Toast } from './Toast';

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Template } from '@/types';
-import storageService from '@/services/StorageService';
+import { DocxTemplate, DocxTemplateListItem } from '@/types/docx-template';
+import { docxTemplateService } from '@/services/DocxTemplateService';
 import { useError } from '@/contexts/ErrorContext';
 import {
   Dialog,
@@ -29,8 +29,8 @@ import { Trash2, Download, Calendar, FileText, Loader2 } from 'lucide-react';
 interface TemplateManagerProps {
   isOpen: boolean;
   onClose: () => void;
-  onLoadTemplate: (template: Template) => void;
-  currentTemplate?: Template | null;
+  onLoadTemplate: (template: DocxTemplate) => void;
+  currentTemplate?: DocxTemplate | null;
 }
 
 const TemplateManager: React.FC<TemplateManagerProps> = ({
@@ -39,11 +39,11 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
   onLoadTemplate,
   currentTemplate
 }) => {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<DocxTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<DocxTemplate | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<DocxTemplate | null>(null);
   
   const { handleError, showSuccess } = useError();
 
@@ -51,24 +51,30 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
     if (isOpen) {
       loadTemplates();
     }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen]);
 
   const loadTemplates = async () => {
     try {
       setIsLoading(true);
-      const result = await storageService.listTemplates();
-      console.log(result.data)
-      if (result.success && result.data) {
-        // Convert TemplateListItem[] to Template[] by loading each template
-        const templatePromises = result.data.map(item => storageService.loadTemplate(item.id));
+      
+      // Сначала получаем список шаблонов
+      const listResult = await docxTemplateService.searchTemplates('');
+      
+      if (listResult.success && listResult.data) {
+        // Загружаем полные данные для каждого шаблона
+        const templatePromises = listResult.data.map(item => 
+          docxTemplateService.getTemplate(item.id)
+        );
+        
         const templateResults = await Promise.all(templatePromises);
+        
         const loadedTemplates = templateResults
           .filter(result => result.success && result.data)
           .map(result => result.data!);
+          
         setTemplates(loadedTemplates);
-        console.log(loadedTemplates)
       } else {
-        throw new Error(result.error || 'Не удалось загрузить шаблоны');
+        throw new Error(listResult.error || 'Не удалось загрузить список шаблонов');
       }
     } catch (error) {
       handleError(error as Error);
@@ -88,7 +94,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
     if (!templateToDelete) return;
     
     try {
-      const result = await storageService.deleteTemplate(templateToDelete.id);
+      const result = await docxTemplateService.deleteTemplate(templateToDelete.id);
       if (result.success) {
         setTemplates(templates.filter(t => t.id !== templateToDelete.id));
         setSelectedTemplate(null);
@@ -103,9 +109,17 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
     }
   };
 
-  const confirmDelete = (template: Template) => {
+  const confirmDelete = (template: DocxTemplate) => {
     setTemplateToDelete(template);
     setShowDeleteConfirm(true);
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   return (
@@ -113,7 +127,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle>Управление шаблонами</DialogTitle>
+            <DialogTitle>Управление шаблонами DOCX</DialogTitle>
             <DialogDescription>
               Загрузите существующий шаблон или удалите ненужные
             </DialogDescription>
@@ -132,7 +146,7 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                   Нет сохраненных шаблонов
                 </h3>
                 <p className="text-muted-foreground">
-                  Создайте и сохраните шаблон, чтобы он появился здесь
+                  Создайте и сохраните DOCX шаблон, чтобы он появился здесь
                 </p>
               </div>
             ) : (
@@ -155,11 +169,13 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                           </CardTitle>
                           <div className="flex items-center space-x-2 mt-2">
                             <Badge variant="secondary" className="text-xs">
-                              {template.elements.length} полей
+                              {template.placeholders.length} полей
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {template.paperFormat.name}
-                            </Badge>
+                            {template.category && (
+                              <Badge variant="outline" className="text-xs">
+                                {template.category}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                         <Button
@@ -177,16 +193,28 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                     </CardHeader>
                     
                     <CardContent className="pt-0">
-                      <div className="flex items-center text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3 mr-1" />
-                        {new Date(template.createdAt).toLocaleDateString('ru-RU')}
+                      <div className="space-y-2">
+                        <div className="flex items-center text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          {new Date(template.createdAt).toLocaleDateString('ru-RU')}
+                        </div>
+                        
+                        {template.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {template.description}
+                          </p>
+                        )}
+                        
+                        <div className="text-xs text-muted-foreground">
+                          Размер: {formatFileSize(template.metadata?.fileSize || 0)}
+                        </div>
+                        
+                        {currentTemplate?.id === template.id && (
+                          <Badge variant="default" className="mt-1 text-xs">
+                            Текущий шаблон
+                          </Badge>
+                        )}
                       </div>
-                      
-                      {currentTemplate?.id === template.id && (
-                        <Badge variant="default" className="mt-2 text-xs">
-                          Текущий шаблон
-                        </Badge>
-                      )}
                     </CardContent>
                   </Card>
                 ))}
