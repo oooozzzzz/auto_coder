@@ -153,7 +153,7 @@ export const FieldMappingTable: React.FC<FieldMappingTableProps> = ({
                 </TableCell>
                 <TableCell>
                   {isMapped ? (
-                    <Badge variant="default" className="bg-green-500">
+                    <Badge variant="default" className={isManual ? "bg-green-800" : "bg-green-500"}>
                       {isManual ? "Ручной ввод" : "Сопоставлено"}
                     </Badge>
                   ) : (

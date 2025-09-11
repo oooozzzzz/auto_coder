@@ -47,9 +47,6 @@ function HomeContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
-  const [showMobileFieldPalette, setShowMobileFieldPalette] = useState(false);
-  const [showMobileDataPreview, setShowMobileDataPreview] = useState(false);
-  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [templateToSave, setTemplateToSave] = useState<DocxTemplate | null>(
     null
   );
@@ -89,7 +86,6 @@ function HomeContent() {
     if (!currentTemplate) return;
 
     setTemplateToSave(currentTemplate);
-    setIsSaveDialogOpen(true);
   };
 
   console.log(fieldMappings)
@@ -107,10 +103,6 @@ function HomeContent() {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-
-      // await docxTemplateService.createTemplate(newTemplate);
-      // showSuccess("Шаблон успешно сохранен");
-      setIsSaveDialogOpen(false);
 
       setCurrentTemplate(newTemplate);
     } catch (error) {

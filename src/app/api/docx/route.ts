@@ -82,6 +82,7 @@ function getFieldValue(
   dataRow: Record<string, any>,
   headers: string[],
   template: DocxTemplate,
+  fieldMappings: Record<string, string>,
   rowIndex: number,
   totalRows: number
 ): any {
@@ -93,32 +94,30 @@ function getFieldValue(
   }
 
   // Получаем mapping для поля из шаблона
-  const fieldMapping = template.fieldMappings[fieldName];
+  // const fieldMapping = template.fieldMappings[fieldName];
+  const fieldMapping = fieldMappings[fieldName];
   
-  if (fieldMapping) {
-    switch (fieldMapping.type) {
-      case "excel":
-        if (fieldMapping.excelColumn && headers.includes(fieldMapping.excelColumn)) {
-          const value = dataRow[fieldMapping.excelColumn];
-          return formatValue(value, template.placeholders.find(p => p.name === fieldName));
-        }
-        break;
-      
-      case "manual":
-        return fieldMapping.manualValue || "";
-      
-      case "none":
-        return "";
+    if (fieldMapping) {
+    // Проверяем, является ли значение ручным (содержит __manual__:)
+    if (fieldMapping.startsWith('__manual__:')) {
+      // Возвращаем значение после префикса __manual__:
+      return fieldMapping.substring(11);
+    } else {
+      // Ищем соответствие в таблице Excel
+      if (headers.includes(fieldMapping)) {
+        const value = dataRow[fieldMapping];
+        return formatValue(value, template.placeholders.find(p => p.name === fieldName));
+      }
     }
-  }
+  } else return ''
 
   // Резервный вариант: ищем поле в данных Excel
-  if (headers.includes(fieldName)) {
-    const value = dataRow[fieldName];
-    return formatValue(value, template.placeholders.find(p => p.name === fieldName));
-  }
+  // if (headers.includes(fieldName)) {
+  //   const value = dataRow[fieldName];
+  //   return formatValue(value, template.placeholders.find(p => p.name === fieldName));
+  // }
 
-  return `[${fieldName}]`;
+  // return `[${fieldName}]`;
 }
 
 /**
@@ -170,29 +169,30 @@ async function generateDocumentForRow(
       linebreaks: true,
     });
 
-    // // Подготавливаем данные для шаблона
-    // const templateData: Record<string, any> = {};
+    // Подготавливаем данные для шаблона
+    const templateData: Record<string, any> = {};
     
-    // // Заполняем данные из mapping'а
-    // Object.keys(fieldMappings).forEach((fieldName) => {
-    //   templateData[fieldName] = getFieldValue(
-    //     fieldName, 
-    //     dataRow, 
-    //     headers, 
-    //     template, 
-    //     rowIndex, 
-    //     totalRows
-    //   );
-    // });
+    // Заполняем данные из mapping'а
+    Object.keys(fieldMappings).forEach((fieldName) => {
+      templateData[fieldName] = getFieldValue(
+        fieldName, 
+        dataRow, 
+        headers, 
+        template, 
+        fieldMappings,
+        rowIndex, 
+        totalRows
+      );
+    });
 
-    // // Добавляем системные поля
-    // Object.entries(SYSTEM_FIELDS_MAP).forEach(([fieldName, fn]) => {
-    //   templateData[fieldName] = fn(rowIndex, totalRows);
-    // });
+    // Добавляем системные поля
+    Object.entries(SYSTEM_FIELDS_MAP).forEach(([fieldName, fn]) => {
+      templateData[fieldName] = fn(rowIndex, totalRows);
+    });
 
-    const prccessedFieldsMappings = removeManualPrefix(fieldMappings)
+    // const prccessedFieldsMappings = removeManualPrefix(fieldMappings)
 
-    const proccesedTemplatesData = processObjectDates(prccessedFieldsMappings)
+    const proccesedTemplatesData = processObjectDates(templateData)
 
     // Устанавливаем данные в шаблон
     doc.setData(proccesedTemplatesData);

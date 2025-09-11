@@ -145,9 +145,9 @@ export function DocumentGenerator({
           <Progress value={(progress.current / progress.total) * 100} />
           <div className="text-sm text-muted-foreground flex justify-between">
             <span>{progress.message}</span>
-            <Badge variant="secondary">
+            {/* <Badge variant="secondary">
               {progress.current} / {progress.total}
-            </Badge>
+            </Badge> */}
           </div>
         </div>
       )}
