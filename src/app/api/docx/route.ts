@@ -2,13 +2,61 @@ import { NextRequest, NextResponse } from "next/server";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { Buffer } from "buffer";
-import { DocxPlaceholder, DocxTemplate } from "@/types/docx-template";
+import { DocxPlaceholder, DocxTemplate, FieldMapping } from "@/types/docx-template";
 import { ExcelData } from "@/types";
+
+function removeTimeFromDateString(dateString: string): string {
+  if (!dateString === undefined) return ''
+  // Проверяем, соответствует ли строка формату с временем
+  const dateTimeRegex = /^\d{1,2}\.\d{1,2}\.\d{4} \d{1,2}:\d{2}$/;
+  
+  if (dateTimeRegex.test(dateString)) {
+    // Если строка соответствует формату, возвращаем только дату
+    return dateString.split(' ')[0];
+  }
+  
+  // Если строка другого формата, возвращаем как есть
+  return dateString;
+}
+
+function processObjectDates(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string') {
+      // Обрабатываем строковые значения
+      result[key] = removeTimeFromDateString(value);
+    } else if (typeof value === 'object' && value !== null) {
+      // Рекурсивно обрабатываем вложенные объекты
+      result[key] = processObjectDates(value);
+    } else {
+      // Оставляем другие типы данных без изменений
+      result[key] = value;
+    }
+  }
+  
+  return result;
+}
+
+function removeManualPrefix<T extends Record<string, any>>(obj: T): T {
+  const result: Record<string, any> = {};
+  
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string') {
+      result[key] = value.replace('__manual__:', '');
+    } else {
+      result[key] = value;
+    }
+  }
+  
+  return result as T;
+}
 
 // Типы для запроса
 interface GenerateDocumentRequest {
   template: DocxTemplate;
   excelData: ExcelData;
+  fieldMappings: Record<string, string>;
   rowIndex?: number;
   generateAll?: boolean;
   templateBuffer: string; // base64 encoded template
@@ -111,6 +159,7 @@ async function generateDocumentForRow(
   dataRow: Record<string, any>,
   headers: string[],
   template: DocxTemplate,
+  fieldMappings: Record<string, string>,
   rowIndex: number,
   totalRows: number
 ): Promise<string> {
@@ -121,28 +170,32 @@ async function generateDocumentForRow(
       linebreaks: true,
     });
 
-    // Подготавливаем данные для шаблона
-    const templateData: Record<string, any> = {};
+    // // Подготавливаем данные для шаблона
+    // const templateData: Record<string, any> = {};
     
-    // Заполняем данные из mapping'а
-    Object.keys(template.fieldMappings).forEach((fieldName) => {
-      templateData[fieldName] = getFieldValue(
-        fieldName, 
-        dataRow, 
-        headers, 
-        template, 
-        rowIndex, 
-        totalRows
-      );
-    });
+    // // Заполняем данные из mapping'а
+    // Object.keys(fieldMappings).forEach((fieldName) => {
+    //   templateData[fieldName] = getFieldValue(
+    //     fieldName, 
+    //     dataRow, 
+    //     headers, 
+    //     template, 
+    //     rowIndex, 
+    //     totalRows
+    //   );
+    // });
 
-    // Добавляем системные поля
-    Object.entries(SYSTEM_FIELDS_MAP).forEach(([fieldName, fn]) => {
-      templateData[fieldName] = fn(rowIndex, totalRows);
-    });
+    // // Добавляем системные поля
+    // Object.entries(SYSTEM_FIELDS_MAP).forEach(([fieldName, fn]) => {
+    //   templateData[fieldName] = fn(rowIndex, totalRows);
+    // });
+
+    const prccessedFieldsMappings = removeManualPrefix(fieldMappings)
+
+    const proccesedTemplatesData = processObjectDates(prccessedFieldsMappings)
 
     // Устанавливаем данные в шаблон
-    doc.setData(templateData);
+    doc.setData(proccesedTemplatesData);
     doc.render();
 
     // Получаем результат как XML содержимое
@@ -244,7 +297,7 @@ export async function POST(request: NextRequest) {
 
     // Конвертируем base64 в Buffer
     const templateBufferData = Buffer.from(requestData.templateBuffer, 'base64');
-    const { template, excelData, rowIndex = 0, generateAll = false, fileName = "document" } = requestData;
+    const { template, fieldMappings, excelData, rowIndex = 0, generateAll = false, fileName = "document" } = requestData;
 
     // Массовая генерация документов с объединением
     if (generateAll) {
@@ -258,6 +311,7 @@ export async function POST(request: NextRequest) {
           dataRow,
           excelData.headers,
           template,
+          fieldMappings,
           i,
           excelData.rows.length
         );
@@ -296,6 +350,7 @@ export async function POST(request: NextRequest) {
       dataRow,
       excelData.headers,
       template,
+      fieldMappings,
       rowIndex,
       excelData.rows.length
     );

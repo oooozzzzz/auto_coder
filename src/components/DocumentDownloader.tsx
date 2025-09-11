@@ -76,7 +76,8 @@ export function DocumentGenerator({
       const blobs = await generateMultipleDocuments(
         template,
         excelData,
-        `document_${new Date().getTime()}.docx`
+        `document_${new Date().getTime()}.docx`,
+        fieldMappings
       );
 
       // Создаем ZIP архив с документами

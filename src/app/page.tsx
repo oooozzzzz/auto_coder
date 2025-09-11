@@ -92,6 +92,8 @@ function HomeContent() {
     setIsSaveDialogOpen(true);
   };
 
+  console.log(fieldMappings)
+
   const handleConfirmSave = async (name: string) => {
     if (!templateToSave) return;
 
