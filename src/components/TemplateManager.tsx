@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { DocxTemplate, DocxTemplateListItem } from '@/types/docx-template';
-import { docxTemplateService } from '@/services/DocxTemplateService';
-import { useError } from '@/contexts/ErrorContext';
+import React, { useState, useEffect } from "react";
+import { DocxTemplate, DocxTemplateListItem } from "@/types/docx-template";
+import { docxTemplateService } from "@/services/DocxTemplateService";
+import { useError } from "@/contexts/ErrorContext";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,11 +20,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, Download, Calendar, FileText, Loader2 } from 'lucide-react';
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trash2, Download, Calendar, FileText, Loader2 } from "lucide-react";
 
 interface TemplateManagerProps {
   isOpen: boolean;
@@ -37,14 +37,18 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
   isOpen,
   onClose,
   onLoadTemplate,
-  currentTemplate
+  currentTemplate,
 }) => {
   const [templates, setTemplates] = useState<DocxTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<DocxTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<DocxTemplate | null>(
+    null
+  );
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [templateToDelete, setTemplateToDelete] = useState<DocxTemplate | null>(null);
-  
+  const [templateToDelete, setTemplateToDelete] = useState<DocxTemplate | null>(
+    null
+  );
+
   const { handleError, showSuccess } = useError();
 
   useEffect(() => {
@@ -56,25 +60,27 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
   const loadTemplates = async () => {
     try {
       setIsLoading(true);
-      
+
       // Сначала получаем список шаблонов
-      const listResult = await docxTemplateService.searchTemplates('');
-      
+      const listResult = await docxTemplateService.searchTemplates("");
+
       if (listResult.success && listResult.data) {
         // Загружаем полные данные для каждого шаблона
-        const templatePromises = listResult.data.map(item => 
+        const templatePromises = listResult.data.map((item) =>
           docxTemplateService.getTemplate(item.id)
         );
-        
+
         const templateResults = await Promise.all(templatePromises);
-        
+
         const loadedTemplates = templateResults
-          .filter(result => result.success && result.data)
-          .map(result => result.data!);
-          
+          .filter((result) => result.success && result.data)
+          .map((result) => result.data!);
+
         setTemplates(loadedTemplates);
       } else {
-        throw new Error(listResult.error || 'Не удалось загрузить список шаблонов');
+        throw new Error(
+          listResult.error || "Не удалось загрузить список шаблонов"
+        );
       }
     } catch (error) {
       handleError(error as Error);
@@ -92,17 +98,19 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
 
   const handleDeleteTemplate = async () => {
     if (!templateToDelete) return;
-    
+
     try {
-      const result = await docxTemplateService.deleteTemplate(templateToDelete.id);
+      const result = await docxTemplateService.deleteTemplate(
+        templateToDelete.id
+      );
       if (result.success) {
-        setTemplates(templates.filter(t => t.id !== templateToDelete.id));
+        setTemplates(templates.filter((t) => t.id !== templateToDelete.id));
         setSelectedTemplate(null);
         setTemplateToDelete(null);
         setShowDeleteConfirm(false);
-        showSuccess('Шаблон удален');
+        showSuccess("Шаблон удален");
       } else {
-        throw new Error(result.error || 'Не удалось удалить шаблон');
+        throw new Error(result.error || "Не удалось удалить шаблон");
       }
     } catch (error) {
       handleError(error as Error);
@@ -115,11 +123,11 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
   };
 
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
+    if (bytes === 0) return "0 B";
     const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const sizes = ["B", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   return (
@@ -155,9 +163,9 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                   <Card
                     key={template.id}
                     className={`cursor-pointer transition-all ${
-                      selectedTemplate?.id === template.id 
-                        ? 'shadow-lg border border-primary/50' 
-                        : 'hover:shadow-md'
+                      selectedTemplate?.id === template.id
+                        ? "shadow-lg border border-primary/50"
+                        : "hover:shadow-md"
                     }`}
                     onClick={() => setSelectedTemplate(template)}
                   >
@@ -171,11 +179,6 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                             <Badge variant="secondary" className="text-xs">
                               {template.placeholders.length} полей
                             </Badge>
-                            {template.category && (
-                              <Badge variant="outline" className="text-xs">
-                                {template.category}
-                              </Badge>
-                            )}
                           </div>
                         </div>
                         <Button
@@ -191,24 +194,21 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
                         </Button>
                       </div>
                     </CardHeader>
-                    
+
                     <CardContent className="pt-0">
                       <div className="space-y-2">
                         <div className="flex items-center text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3 mr-1" />
-                          {new Date(template.createdAt).toLocaleDateString('ru-RU')}
+                          {new Date(template.createdAt).toLocaleDateString(
+                            "ru-RU"
+                          )}
                         </div>
-                        
-                        {template.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-2">
-                            {template.description}
-                          </p>
-                        )}
-                        
+
                         <div className="text-xs text-muted-foreground">
-                          Размер: {formatFileSize(template.metadata?.fileSize || 0)}
+                          Размер:{" "}
+                          {formatFileSize(template.metadata?.fileSize || 0)}
                         </div>
-                        
+
                         {currentTemplate?.id === template.id && (
                           <Badge variant="default" className="mt-1 text-xs">
                             Текущий шаблон
@@ -225,16 +225,15 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
           {/* Footer */}
           <div className="flex items-center justify-between pt-4 border-t">
             <div className="text-sm text-muted-foreground">
-              {selectedTemplate ? `Выбран: ${selectedTemplate.name}` : 'Выберите шаблон для загрузки'}
+              {selectedTemplate
+                ? `Выбран: ${selectedTemplate.name}`
+                : "Выберите шаблон для загрузки"}
             </div>
             <div className="flex space-x-2">
               <Button variant="outline" onClick={onClose}>
                 Отмена
               </Button>
-              <Button 
-                onClick={handleLoadTemplate}
-                disabled={!selectedTemplate}
-              >
+              <Button onClick={handleLoadTemplate} disabled={!selectedTemplate}>
                 <Download className="h-4 w-4 mr-2" />
                 Загрузить шаблон
               </Button>
@@ -249,15 +248,15 @@ const TemplateManager: React.FC<TemplateManagerProps> = ({
           <AlertDialogHeader>
             <AlertDialogTitle>Удалить шаблон?</AlertDialogTitle>
             <AlertDialogDescription>
-              Вы уверены, что хотите удалить шаблон &quot;{templateToDelete?.name}&quot;? 
-              Это действие нельзя отменить.
+              Вы уверены, что хотите удалить шаблон &quot;
+              {templateToDelete?.name}&quot;? Это действие нельзя отменить.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setShowDeleteConfirm(false)}>
               Отмена
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleDeleteTemplate}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
