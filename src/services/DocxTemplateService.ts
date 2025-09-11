@@ -5,6 +5,7 @@ import {
   DocxTemplateVersion,
   DocxTemplateListItem,
   ValidationRule,
+  FieldMapping,
 } from "@/types/docx-template";
 import { StorageResult } from "@/types";
 import { generateId } from "@/utils/formatters";
@@ -50,9 +51,12 @@ export class DocxTemplateService {
     file: File,
     createdBy: string,
     options?: {
+      placeholders?: DocxPlaceholder[];
       description?: string;
       category?: string;
       tags?: string[];
+      //  placeholders?: DocxPlaceholder[]; // Добавьте возможность передавать плейсхолдеры с mapping
+      fieldMappings?: Record<string, FieldMapping>; // И сопоставления
     }
   ): Promise<StorageResult<DocxTemplate>> {
     try {
@@ -60,7 +64,9 @@ export class DocxTemplateService {
 
       // Анализируем DOCX файл для извлечения плейсхолдеров
       const fileBuffer = await file.arrayBuffer();
-      const placeholders = await this.extractPlaceholders(fileBuffer);
+      // const placeholders = await this.extractPlaceholders(fileBuffer);
+      const placeholders =
+        options?.placeholders || (await this.extractPlaceholders(fileBuffer));
 
       // Сохраняем файл
       const fileId = generateId();
@@ -79,6 +85,7 @@ export class DocxTemplateService {
         version: 1,
         fileId,
         placeholders,
+        fieldMappings: options?.fieldMappings || {},
         metadata: await this.extractMetadata(fileBuffer),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -101,6 +108,69 @@ export class DocxTemplateService {
     }
   }
 
+  async updateTemplateMappings(
+    templateId: string,
+    mappings: Record<string, FieldMapping>,
+    modifiedBy: string,
+    comment?: string
+  ): Promise<StorageResult<DocxTemplate>> {
+    try {
+      await this.initialize();
+
+      const template = await this.db.templates.get(templateId);
+      if (!template) {
+        return { success: false, error: "Шаблон не найден" };
+      }
+
+      // Обновляем плейсхолдеры с mapping информацией
+      const updatedPlaceholders = template.placeholders.map((placeholder) => ({
+        ...placeholder,
+        mapping: mappings[placeholder.name],
+        excelColumn: mappings[placeholder.name]?.excelColumn,
+        manualValue: mappings[placeholder.name]?.manualValue,
+        mappingType: mappings[placeholder.name]?.type,
+      }));
+
+      const updatedTemplate: DocxTemplate = {
+        ...template,
+        placeholders: updatedPlaceholders,
+        fieldMappings: mappings,
+        version: template.version + 1,
+        updatedAt: new Date().toISOString(),
+        lastModifiedBy: modifiedBy,
+      };
+
+      await this.db.templates.update(templateId, updatedTemplate);
+
+      if (comment) {
+        await this.saveVersion(updatedTemplate, comment, modifiedBy);
+      }
+
+      return { success: true, data: updatedTemplate };
+    } catch (error) {
+      console.error("Error updating mappings:", error);
+      return { success: false, error: "Ошибка обновления сопоставлений" };
+    }
+  }
+
+  // Новый метод для получения шаблона с актуальными mapping
+  async getTemplateWithMappings(
+    id: string
+  ): Promise<StorageResult<DocxTemplate>> {
+    try {
+      await this.initialize();
+
+      const template = await this.db.templates.get(id);
+      if (!template) {
+        return { success: false, error: "Шаблон не найден" };
+      }
+
+      return { success: true, data: template };
+    } catch (error) {
+      console.error("Error getting template with mappings:", error);
+      return { success: false, error: "Ошибка получения шаблона" };
+    }
+  }
 
   async getTemplate(id: string): Promise<StorageResult<DocxTemplate>> {
     try {
@@ -234,7 +304,6 @@ export class DocxTemplateService {
       return [];
     }
   }
-
 
   private formatDisplayName(name: string): string {
     return name
@@ -401,3 +470,63 @@ export class DocxTemplateService {
 
 // Экспортируем синглтон
 export const docxTemplateService = new DocxTemplateService();
+
+// utils/mapping-utils.ts
+export const parseMappingValue = (value: string): { type: string; value: string } => {
+  if (value.startsWith('__manual__:')) {
+    return {
+      type: 'manual',
+      value: value.replace('__manual__:', '')
+    };
+  }
+  return {
+    type: 'excel',
+    value: value
+  };
+};
+
+export const formatMappingValue = (type: string, value: string): string => {
+  if (type === 'manual') {
+    return `__manual__:${value}`;
+  }
+  return value;
+};
+
+export const getMappingDisplayText = (mapping: string): string => {
+  const parsed = parseMappingValue(mapping);
+  if (parsed.type === 'manual') {
+    return `Ручной ввод: ${parsed.value}`;
+  }
+  return parsed.value || 'Не выбрано';
+};
+
+export const fieldMappingToString = (mapping: FieldMapping): string => {
+  if (mapping.type === 'manual' && mapping.manualValue) {
+    return `__manual__:${mapping.manualValue}`;
+  }
+  if (mapping.type === 'excel' && mapping.excelColumn) {
+    return mapping.excelColumn;
+  }
+  return '';
+};
+
+export const stringToFieldMapping = (value: string): FieldMapping => {
+  if (value.startsWith('__manual__:')) {
+    return {
+      type: 'manual',
+      manualValue: value.replace('__manual__:', ''),
+      createdAt: new Date().toISOString()
+    };
+  }
+  if (value) {
+    return {
+      type: 'excel',
+      excelColumn: value,
+      createdAt: new Date().toISOString()
+    };
+  }
+  return {
+    type: 'none',
+    createdAt: new Date().toISOString()
+  };
+};

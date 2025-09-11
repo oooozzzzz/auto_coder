@@ -1,15 +1,15 @@
-import Dexie, { Table } from 'dexie';
-import { 
-  Template, 
-  TemplateListItem, 
-  StorageResult, 
+import Dexie, { Table } from "dexie";
+import {
+  Template,
+  TemplateListItem,
+  StorageResult,
   IStorageService,
   TemplateExportData,
-  TemplateImportResult 
-} from '@/types';
-import { STORAGE_SETTINGS } from '@/constants';
-import { validateTemplate, checkBrowserSupport } from '@/utils/validators';
-import { generateId } from '@/utils/formatters';
+  TemplateImportResult,
+} from "@/types";
+import { STORAGE_SETTINGS } from "@/constants";
+import { validateTemplate, checkBrowserSupport } from "@/utils/validators";
+import { generateId } from "@/utils/formatters";
 
 /**
  * IndexedDB database schema using Dexie.js
@@ -19,14 +19,14 @@ class TemplateDatabase extends Dexie {
 
   constructor() {
     super(STORAGE_SETTINGS.DB_NAME);
-    
+
     // Define schema
     this.version(STORAGE_SETTINGS.DB_VERSION).stores({
-      templates: '++id, name, createdAt, updatedAt, paperFormat.name'
+      templates: "++id, name, createdAt, updatedAt, paperFormat.name",
     });
 
     // Add hooks for automatic timestamps
-    this.templates.hook('creating', (primKey, obj, trans) => {
+    this.templates.hook("creating", (primKey, obj, trans) => {
       obj.createdAt = new Date().toISOString();
       obj.updatedAt = new Date().toISOString();
       if (!obj.id) {
@@ -34,9 +34,12 @@ class TemplateDatabase extends Dexie {
       }
     });
 
-    this.templates.hook('updating', (modifications: any, primKey, obj, trans) => {
-      modifications.updatedAt = new Date().toISOString();
-    });
+    this.templates.hook(
+      "updating",
+      (modifications: any, primKey, obj, trans) => {
+        modifications.updatedAt = new Date().toISOString();
+      }
+    );
   }
 }
 
@@ -60,7 +63,11 @@ class StorageService implements IStorageService {
     // Check browser support
     const support = checkBrowserSupport();
     if (!support.isSupported) {
-      throw new Error(`Browser не поддерживает необходимые функции: ${support.missingFeatures.join(', ')}`);
+      throw new Error(
+        `Browser не поддерживает необходимые функции: ${support.missingFeatures.join(
+          ", "
+        )}`
+      );
     }
 
     try {
@@ -68,8 +75,8 @@ class StorageService implements IStorageService {
       await this.db.open();
       this.isInitialized = true;
     } catch (error) {
-      console.error('Failed to initialize IndexedDB:', error);
-      throw new Error('Не удалось инициализировать хранилище данных');
+      console.error("Failed to initialize IndexedDB:", error);
+      throw new Error("Не удалось инициализировать хранилище данных");
     }
   }
 
@@ -85,27 +92,27 @@ class StorageService implements IStorageService {
       if (!validation.isValid) {
         return {
           success: false,
-          error: validation.error || 'Шаблон содержит ошибки'
+          error: validation.error || "Шаблон содержит ошибки",
         };
       }
 
       // Check if template with same name exists
       const existing = await this.db.templates
-        .where('name')
+        .where("name")
         .equals(template.name)
-        .and(t => t.id !== template.id)
+        .and((t) => t.id !== template.id)
         .first();
 
       if (existing) {
         return {
           success: false,
-          error: 'Шаблон с таким именем уже существует'
+          error: "Шаблон с таким именем уже существует",
         };
       }
 
       // Save or update template
       let savedId: string;
-      if (template.id && await this.db.templates.get(template.id)) {
+      if (template.id && (await this.db.templates.get(template.id))) {
         // Update existing template
         await this.db.templates.update(template.id, template);
         savedId = template.id;
@@ -115,7 +122,7 @@ class StorageService implements IStorageService {
           ...template,
           id: template.id || generateId(),
           createdAt: template.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          updatedAt: new Date().toISOString(),
         };
         await this.db.templates.put(newTemplate);
         savedId = newTemplate.id;
@@ -123,13 +130,13 @@ class StorageService implements IStorageService {
 
       return {
         success: true,
-        data: savedId
+        data: savedId,
       };
     } catch (error) {
-      console.error('Error saving template:', error);
+      console.error("Error saving template:", error);
       return {
         success: false,
-        error: 'Ошибка сохранения шаблона'
+        error: "Ошибка сохранения шаблона",
       };
     }
   }
@@ -145,19 +152,19 @@ class StorageService implements IStorageService {
       if (!template) {
         return {
           success: false,
-          error: 'Шаблон не найден'
+          error: "Шаблон не найден",
         };
       }
 
       return {
         success: true,
-        data: template
+        data: template,
       };
     } catch (error) {
-      console.error('Error loading template:', error);
+      console.error("Error loading template:", error);
       return {
         success: false,
-        error: 'Ошибка загрузки шаблона'
+        error: "Ошибка загрузки шаблона",
       };
     }
   }
@@ -170,28 +177,28 @@ class StorageService implements IStorageService {
       await this.initialize();
 
       const templates = await this.db.templates
-        .orderBy('updatedAt')
+        .orderBy("updatedAt")
         .reverse()
         .toArray();
 
-      const templateList: TemplateListItem[] = templates.map(template => ({
+      const templateList: TemplateListItem[] = templates.map((template) => ({
         id: template.id,
         name: template.name,
         createdAt: new Date(template.createdAt),
         updatedAt: new Date(template.updatedAt),
         elementCount: template.elements.length,
-        paperFormat: template.paperFormat.name
+        // paperFormat: template.paperFormat.name
       }));
 
       return {
         success: true,
-        data: templateList
+        data: templateList,
       };
     } catch (error) {
-      console.error('Error listing templates:', error);
+      console.error("Error listing templates:", error);
       return {
         success: false,
-        error: 'Ошибка получения списка шаблонов'
+        error: "Ошибка получения списка шаблонов",
       };
     }
   }
@@ -207,7 +214,7 @@ class StorageService implements IStorageService {
       if (!template) {
         return {
           success: false,
-          error: 'Шаблон не найден'
+          error: "Шаблон не найден",
         };
       }
 
@@ -215,13 +222,13 @@ class StorageService implements IStorageService {
 
       return {
         success: true,
-        data: true
+        data: true,
       };
     } catch (error) {
-      console.error('Error deleting template:', error);
+      console.error("Error deleting template:", error);
       return {
         success: false,
-        error: 'Ошибка удаления шаблона'
+        error: "Ошибка удаления шаблона",
       };
     }
   }
@@ -237,13 +244,13 @@ class StorageService implements IStorageService {
 
       return {
         success: true,
-        data: true
+        data: true,
       };
     } catch (error) {
-      console.error('Error clearing templates:', error);
+      console.error("Error clearing templates:", error);
       return {
         success: false,
-        error: 'Ошибка очистки шаблонов'
+        error: "Ошибка очистки шаблонов",
       };
     }
   }
@@ -257,33 +264,33 @@ class StorageService implements IStorageService {
       if (!result.success || !result.data) {
         return {
           success: false,
-          error: result.error || 'Шаблон не найден'
+          error: result.error || "Шаблон не найден",
         };
       }
 
       const exportData: TemplateExportData = {
         template: result.data,
-        version: '1.0',
+        version: "1.0",
         exportedAt: new Date(),
         metadata: {
-          appVersion: '1.0.0',
-          browserInfo: navigator.userAgent
-        }
+          appVersion: "1.0.0",
+          browserInfo: navigator.userAgent,
+        },
       };
 
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
-        type: 'application/json'
+        type: "application/json",
       });
 
       return {
         success: true,
-        data: blob
+        data: blob,
       };
     } catch (error) {
-      console.error('Error exporting template:', error);
+      console.error("Error exporting template:", error);
       return {
         success: false,
-        error: 'Ошибка экспорта шаблона'
+        error: "Ошибка экспорта шаблона",
       };
     }
   }
@@ -299,7 +306,7 @@ class StorageService implements IStorageService {
       if (!importData.template) {
         return {
           success: false,
-          error: 'Неверный формат файла шаблона'
+          error: "Неверный формат файла шаблона",
         };
       }
 
@@ -309,26 +316,26 @@ class StorageService implements IStorageService {
         id: generateId(),
         name: `${importData.template.name} (импорт)`,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
 
       const saveResult = await this.saveTemplate(template);
       if (!saveResult.success) {
         return {
           success: false,
-          error: saveResult.error
+          error: saveResult.error,
         };
       }
 
       return {
         success: true,
-        data: template
+        data: template,
       };
     } catch (error) {
-      console.error('Error importing template:', error);
+      console.error("Error importing template:", error);
       return {
         success: false,
-        error: 'Ошибка импорта шаблона'
+        error: "Ошибка импорта шаблона",
       };
     }
   }
@@ -336,35 +343,36 @@ class StorageService implements IStorageService {
   /**
    * Search templates by name or other criteria
    */
-  async searchTemplates(query: string): Promise<StorageResult<TemplateListItem[]>> {
+  async searchTemplates(
+    query: string
+  ): Promise<StorageResult<TemplateListItem[]>> {
     try {
       await this.initialize();
 
       const templates = await this.db.templates
-        .filter(template => 
-          template.name.toLowerCase().includes(query.toLowerCase()) ||
-          template.paperFormat.name.toLowerCase().includes(query.toLowerCase())
+        .filter((template) =>
+          template.name.toLowerCase().includes(query.toLowerCase())
         )
         .toArray();
 
-      const templateList: TemplateListItem[] = templates.map(template => ({
+      const templateList: TemplateListItem[] = templates.map((template) => ({
         id: template.id,
         name: template.name,
         createdAt: new Date(template.createdAt),
         updatedAt: new Date(template.updatedAt),
         elementCount: template.elements.length,
-        paperFormat: template.paperFormat.name
+        // paperFormat: template.paperFormat.name
       }));
 
       return {
         success: true,
-        data: templateList
+        data: templateList,
       };
     } catch (error) {
-      console.error('Error searching templates:', error);
+      console.error("Error searching templates:", error);
       return {
         success: false,
-        error: 'Ошибка поиска шаблонов'
+        error: "Ошибка поиска шаблонов",
       };
     }
   }
@@ -372,24 +380,26 @@ class StorageService implements IStorageService {
   /**
    * Get storage usage statistics
    */
-  async getStorageStats(): Promise<StorageResult<{
-    totalTemplates: number;
-    totalSize: number;
-    oldestTemplate: Date | null;
-    newestTemplate: Date | null;
-  }>> {
+  async getStorageStats(): Promise<
+    StorageResult<{
+      totalTemplates: number;
+      totalSize: number;
+      oldestTemplate: Date | null;
+      newestTemplate: Date | null;
+    }>
+  > {
     try {
       await this.initialize();
 
       const templates = await this.db.templates.toArray();
       const totalTemplates = templates.length;
-      
+
       // Estimate size (rough calculation)
       const totalSize = templates.reduce((size, template) => {
         return size + JSON.stringify(template).length;
       }, 0);
 
-      const dates = templates.map(t => new Date(t.createdAt)).sort();
+      const dates = templates.map((t) => new Date(t.createdAt)).sort();
       const oldestTemplate = dates.length > 0 ? dates[0] : null;
       const newestTemplate = dates.length > 0 ? dates[dates.length - 1] : null;
 
@@ -399,14 +409,14 @@ class StorageService implements IStorageService {
           totalTemplates,
           totalSize,
           oldestTemplate,
-          newestTemplate
-        }
+          newestTemplate,
+        },
       };
     } catch (error) {
-      console.error('Error getting storage stats:', error);
+      console.error("Error getting storage stats:", error);
       return {
         success: false,
-        error: 'Ошибка получения статистики хранилища'
+        error: "Ошибка получения статистики хранилища",
       };
     }
   }

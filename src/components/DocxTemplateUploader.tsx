@@ -35,7 +35,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { docxTemplateService } from "@/services/DocxTemplateService";
-import { DocxPlaceholder } from "@/types/docx-template";
+import { DocxPlaceholder, FieldMapping } from "@/types/docx-template";
 import { FieldMappingTable } from "./FieldMappingTable";
 import { CustomPlaceholderDialog } from "./CustomPlaceholderDialog";
 
@@ -74,6 +74,81 @@ export const DocxTemplateUploader: React.FC<DocxTemplateUploaderProps> = ({
 
   const handleRemoveCustomPlaceholder = (placeholderId: string) => {
     setPlaceholders((prev: DocxPlaceholder[]) => prev.filter(p => p.id !== placeholderId));
+  };
+
+  const handleSaveTemplate = async () => {
+    if (file) {
+
+      
+      setIsLoading(true);
+      try {
+      // Преобразуем fieldMappings в формат FieldMapping
+      const formattedMappings: Record<string, FieldMapping> = {};
+      
+      Object.entries(fieldMappings).forEach(([placeholderName, mappingValue]) => {
+        if (mappingValue.startsWith('__manual__:')) {
+          formattedMappings[placeholderName] = {
+            type: "manual",
+            manualValue: mappingValue.replace('__manual__:', ''),
+            createdAt: new Date().toISOString(),
+          };
+        } else if (mappingValue) {
+          formattedMappings[placeholderName] = {
+            type: "excel",
+            excelColumn: mappingValue,
+            createdAt: new Date().toISOString(),
+          };
+        } else {
+          formattedMappings[placeholderName] = {
+            type: "none",
+            createdAt: new Date().toISOString(),
+          };
+        }
+      });
+
+      // Обновляем плейсхолдеры с mapping информацией
+      const updatedPlaceholders = placeholders.map(placeholder => ({
+        ...placeholder,
+        mapping: formattedMappings[placeholder.name],
+        excelColumn: formattedMappings[placeholder.name]?.excelColumn,
+        manualValue: formattedMappings[placeholder.name]?.manualValue,
+        mappingType: formattedMappings[placeholder.name]?.type,
+      }));
+
+      const result = await docxTemplateService.createTemplate(
+        templateName,
+        file,
+        createdBy,
+        {
+          description: `Шаблон "${templateName}"`,
+          category: "general",
+          tags: ["uploaded"],
+          placeholders: updatedPlaceholders, // Передаем плейсхолдеры с mapping
+          fieldMappings: formattedMappings, // И отдельно mapping
+        }
+      );
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      showSuccess("Шаблон успешно сохранен с сопоставлениями");
+      
+    } catch (err) {
+      setError(
+        err instanceof Error
+        ? err.message
+        : "Ошибка сохранения шаблона"
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  } else {
+    const template = await docxTemplateService.getTemplate(templateName);
+    if (template.success) {
+      showTemplate(template.data);
+    }
+  }
   };
 
 
@@ -271,39 +346,7 @@ export const DocxTemplateUploader: React.FC<DocxTemplateUploaderProps> = ({
       {placeholders.length > 0 && templateName && (
         <div className="flex justify-end">
           <Button
-            onClick={async () => {
-              if (!file) return;
-
-              setIsLoading(true);
-              try {
-                const result = await docxTemplateService.createTemplate(
-                  templateName,
-                  file,
-                  createdBy,
-                  {
-                    description: `Шаблон "${templateName}"`,
-                    category: "general",
-                    tags: ["uploaded"],
-                  }
-                );
-
-                if (!result.success) {
-                  throw new Error(result.error);
-                }
-
-                // Можно добавить уведомление об успешном сохранении
-                console.log("Template saved:", result.data);
-                showSuccess("Шаблон успешно сохранен");
-              } catch (err) {
-                setError(
-                  err instanceof Error
-                    ? err.message
-                    : "Ошибка сохранения шаблона"
-                );
-              } finally {
-                setIsLoading(false);
-              }
-            }}
+            onClick={handleSaveTemplate}
             disabled={isLoading}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

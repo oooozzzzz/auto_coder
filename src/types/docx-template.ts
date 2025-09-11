@@ -14,13 +14,29 @@ export interface DocxTemplate {
   updatedAt: string;
   createdBy: string;
   lastModifiedBy: string;
+  fieldMappings: Record<string, FieldMapping>;
+}
+
+export interface FieldMapping {
+  type: "excel" | "manual" | "none";
+  excelColumn?: string;
+  manualValue?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface DocxPlaceholder {
   id: string;
   name: string;
   displayName: string;
-  type: 'text' | 'number' | 'date' | 'image' | 'table' | 'rich-text' | 'boolean';
+  type:
+    | "text"
+    | "number"
+    | "date"
+    | "image"
+    | "table"
+    | "rich-text"
+    | "boolean";
   defaultValue?: any;
   required: boolean;
   description?: string;
@@ -28,10 +44,15 @@ export interface DocxPlaceholder {
   options?: string[]; // Для выпадающих списков
   format?: string; // Для дат и чисел
   isCustom?: boolean;
+  value?: string;
+  mapping?: FieldMapping; // Соответствие с Excel/ручным вводом
+  excelColumn?: string; // Название столбца Excel
+  manualValue?: string; // Ручное значение
+  mappingType?: "excel" | "manual" | "none"; // Тип сопоставления
 }
 
 export interface ValidationRule {
-  type: 'min' | 'max' | 'pattern' | 'required' | 'email' | 'url';
+  type: "min" | "max" | "pattern" | "required" | "email" | "url";
   value?: any;
   message: string;
 }
@@ -66,7 +87,11 @@ export interface DocxTemplateVersion {
 }
 
 export interface TemplateChange {
-  type: 'placeholder_added' | 'placeholder_removed' | 'placeholder_modified' | 'content_updated';
+  type:
+    | "placeholder_added"
+    | "placeholder_removed"
+    | "placeholder_modified"
+    | "content_updated";
   details: any;
   timestamp: string;
 }

@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileSpreadsheet, Database, Settings } from "lucide-react";
 import { PAPER_FORMATS } from "@/constants";
-import templateService from "@/services/TemplateService";
+// import templateService from "@/services/TemplateService";
 import { generateId } from "@/utils/formatters";
 import { ErrorProvider, useError } from "@/contexts/ErrorContext";
 import TemplateSaveDialog from "@/components/TemplateSaveDialog";
@@ -30,7 +30,9 @@ import { DocxPlaceholder, DocxTemplate } from "@/types/docx-template";
 import {
   docxTemplateService,
   DocxTemplateService,
+  fieldMappingToString,
 } from "@/services/DocxTemplateService";
+import { DocumentGenerator } from "@/components/DocumentDownloader";
 
 type Step = "upload" | "template" | "generate";
 
@@ -117,6 +119,12 @@ function HomeContent() {
   };
 
   const handleLoadTemplate = (template: DocxTemplate) => {
+    const mappings: Record<string, string> = {};
+    Object.entries(template.fieldMappings || {}).forEach(([key, mapping]) => {
+      mappings[key] = fieldMappingToString(mapping);
+    });
+
+    setFieldMappings(mappings);
     setCurrentTemplate(template);
     setPlaceholders(template.placeholders);
     setShowTemplateManager(false);
@@ -205,6 +213,18 @@ function HomeContent() {
               onClose={() => setShowTemplateManager(false)}
               onLoadTemplate={handleLoadTemplate}
               currentTemplate={currentTemplate}
+            />
+          )}
+          {currentStep === "generate" && currentTemplate && excelData && (
+            <DocumentGenerator
+              template={currentTemplate}
+              excelData={excelData}
+              fieldMappings={fieldMappings}
+              onGenerationComplete={() => {
+                showSuccess("Документы успешно сгенерированы");
+              }}
+              showSuccess={showSuccess}
+              showError={handleError}
             />
           )}
 

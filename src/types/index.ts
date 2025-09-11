@@ -11,7 +11,6 @@ export interface ExcelData {
 export interface Template {
   id: string;
   name: string;
-  paperFormat: PaperFormat;
   elements: TemplateElement[];
   createdAt: string;
   updatedAt: string;
@@ -135,7 +134,7 @@ export interface TemplateListItem {
   createdAt: Date;
   updatedAt: Date;
   elementCount: number;
-  paperFormat: string;
+  // paperFormat: string;
 }
 
 // Drag and drop types
