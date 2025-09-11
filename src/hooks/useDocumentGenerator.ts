@@ -266,7 +266,7 @@ export function useDocumentGenerator() {
         setProgress({
           current: i,
           total: totalRows,
-          message: `Генерация документа ${i + 1} из ${totalRows}...`,
+          message: `Генерация документа ${i + 1}...`,
         });
 
         const response = await fetch("/api/docx", {
