@@ -6,7 +6,7 @@ import { DocxPlaceholder, DocxTemplate, FieldMapping } from "@/types/docx-templa
 import { ExcelData } from "@/types";
 
 function removeTimeFromDateString(dateString: string): string {
-  if (!dateString === undefined) return ''
+  if (dateString === undefined) return ''
   // Проверяем, соответствует ли строка формату с временем
   const dateTimeRegex = /^\d{1,2}\.\d{1,2}\.\d{4} \d{1,2}:\d{2}$/;
   
@@ -193,6 +193,7 @@ async function generateDocumentForRow(
     // const prccessedFieldsMappings = removeManualPrefix(fieldMappings)
 
     const proccesedTemplatesData = processObjectDates(templateData)
+    console.log(proccesedTemplatesData)
 
     // Устанавливаем данные в шаблон
     doc.setData(proccesedTemplatesData);

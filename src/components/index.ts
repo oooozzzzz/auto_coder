@@ -2,7 +2,6 @@
 export { default as BrowserCompatibilityWarning } from './BrowserCompatibilityWarning';
 export { default as FileUploader } from './FileUploader';
 export { default as DataPreview } from './DataPreview';
-export { default as TemplateCanvas } from './TemplateCanvas';
 export { default as FieldPalette } from './FieldPalette';
 export { default as TemplateManager } from './TemplateManager';
 // export { default as DocumentDownloader } from './DocumentDownloader';

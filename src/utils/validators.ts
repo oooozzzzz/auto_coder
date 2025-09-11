@@ -96,31 +96,31 @@ export const validateTemplateName = (name: string): { isValid: boolean; error?: 
 /**
  * Validate template structure
  */
-export const validateTemplate = (template: Template): { isValid: boolean; error?: string } => {
-  if (!template.name || !template.paperFormat) {
-    return {
-      isValid: false,
-      error: 'Шаблон должен содержать имя и формат бумаги'
-    };
-  }
+// export const validateTemplate = (template: Template): { isValid: boolean; error?: string } => {
+//   if (!template.name || !template.paperFormat) {
+//     return {
+//       isValid: false,
+//       error: 'Шаблон должен содержать имя и формат бумаги'
+//     };
+//   }
 
-  if (!Array.isArray(template.elements)) {
-    return {
-      isValid: false,
-      error: 'Шаблон должен содержать массив элементов'
-    };
-  }
+//   if (!Array.isArray(template.elements)) {
+//     return {
+//       isValid: false,
+//       error: 'Шаблон должен содержать массив элементов'
+//     };
+//   }
 
-  // Validate each element
-  for (const element of template.elements) {
-    const elementValidation = validateTemplateElement(element);
-    if (!elementValidation.isValid) {
-      return elementValidation;
-    }
-  }
+//   // Validate each element
+//   for (const element of template.elements) {
+//     const elementValidation = validateTemplateElement(element);
+//     if (!elementValidation.isValid) {
+//       return elementValidation;
+//     }
+//   }
 
-  return { isValid: true };
-};
+//   return { isValid: true };
+// };
 
 /**
  * Validate template element

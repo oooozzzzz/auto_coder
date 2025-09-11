@@ -8,7 +8,7 @@ import {
   TemplateImportResult,
 } from "@/types";
 import { STORAGE_SETTINGS } from "@/constants";
-import { validateTemplate, checkBrowserSupport } from "@/utils/validators";
+import { checkBrowserSupport } from "@/utils/validators";
 import { generateId } from "@/utils/formatters";
 
 /**
@@ -88,13 +88,13 @@ class StorageService implements IStorageService {
       await this.initialize();
 
       // Validate template
-      const validation = validateTemplate(template);
-      if (!validation.isValid) {
-        return {
-          success: false,
-          error: validation.error || "Шаблон содержит ошибки",
-        };
-      }
+      // const validation = validateTemplate(template);
+      // if (!validation.isValid) {
+      //   return {
+      //     success: false,
+      //     error: validation.error || "Шаблон содержит ошибки",
+      //   };
+      // }
 
       // Check if template with same name exists
       const existing = await this.db.templates

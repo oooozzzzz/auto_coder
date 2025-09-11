@@ -3,27 +3,19 @@
 import { useState, useMemo } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { ExcelData, Template, TemplateElement, FieldDefinition } from "@/types";
+import { ExcelData, TemplateElement, FieldDefinition } from "@/types";
 import {
   FileUploader,
   DataPreview,
-  TemplateCanvas,
-  FieldPalette,
   TemplateManager,
   ErrorBoundary,
   Header,
-  MobileDrawer,
   ResponsiveCard,
   ResponsiveStack,
 } from "@/components";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { FileSpreadsheet, Database, Settings } from "lucide-react";
-import { PAPER_FORMATS } from "@/constants";
-// import templateService from "@/services/TemplateService";
 import { generateId } from "@/utils/formatters";
 import { ErrorProvider, useError } from "@/contexts/ErrorContext";
-import TemplateSaveDialog from "@/components/TemplateSaveDialog";
+
 import { UploadResult } from "@/components/FileUploader";
 import DocxTemplateUploader from "@/components/DocxTemplateUploader";
 import { DocxPlaceholder, DocxTemplate } from "@/types/docx-template";
